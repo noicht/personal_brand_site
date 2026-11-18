@@ -1,0 +1,303 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Sitios/clients/**"
+      - "Sitios/services/**"
+      - "Sitios/packages/**"
+      - "Sitios/infra/**"
+      - "Sitios/package.json"
+      - "Sitios/package-lock.json"
+      - ".github/workflows/deploy.yml"
+  # Manual: todos los clientes estáticos ("sitios") o además general e infra ("todo", p. ej. para
+  # poblar un servidor nuevo).
+  workflow_dispatch:
+    inputs:
+      alcance:
+        description: "sitios: solo los estáticos (no usa Docker en el servidor). todo: además general, imágenes e infra."
+        required: true
+        type: choice
+        default: sitios
+        options:
+          - sitios
+          - todo
+
+env:
+  # Los clientes estáticos se publican solo en QA (HETZNER_HOST): <cliente>.<QA_DOMAIN>.
+  # Producción (HETZNER_PROD_HOST) se promueve a mano desde QA (promote.yml).
+  # Tiene que coincidir con promote.yml, Sitios/packages/kit/src/host.js y Sitios/infra/ (Caddyfile
+  # y sites/<QA_DOMAIN>.caddy). Ver Sitios/docs/github-actions.md.
+  QA_DOMAIN: qa.example.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detectar cambios
+        id: changes
+        run: |
+          set -euo pipefail
+          BEFORE="${{ github.event.before }}"
+          SHA="${{ github.sha }}"
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            RANGE="${BEFORE}...${SHA}"
+          else
+            RANGE="HEAD^...HEAD"
+          fi
+          echo "range=$RANGE"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual: todos los clientes, sin mirar el último commit. Si no, "sitios" igual
+            # publicaría general o infra cuando el último commit los tocó.
+            : > changed.txt
+            for d in Sitios/clients/*/; do echo "${d}package.json" >> changed.txt; done
+          else
+            git diff --name-only "$RANGE" > changed.txt || git diff --name-only HEAD^ HEAD > changed.txt
+          fi
+          echo "Cambiaron:"
+          cat changed.txt
+
+          # Clientes tocados (nombre de carpeta bajo Sitios/clients/)
+          clients=""
+          while IFS= read -r line; do
+            case "$line" in
+              Sitios/clients/*)
+                name="${line#Sitios/clients/}"
+                name="${name%%/*}"
+                if [ -n "$name" ] && [ -d "Sitios/clients/$name" ]; then
+                  clients=$(printf '%s\n%s\n' "$clients" "$name" | sed '/^$/d' | sort -u)
+                fi
+                ;;
+            esac
+          done < changed.txt
+
+          # Cambio en packages/* → rebuild solo clients que dependen de @sitios/*
+          if grep -qE '^Sitios/packages/' changed.txt; then
+            for d in Sitios/clients/*/; do
+              name=$(basename "$d")
+              if [ -f "$d/package.json" ] && grep -qE '"@sitios/' "$d/package.json"; then
+                clients=$(printf '%s\n%s\n' "$clients" "$name" | sed '/^$/d' | sort -u)
+              fi
+            done
+          fi
+
+          general=false
+          infra=false
+          compose_changed=false
+          pkg_root=false
+          grep -qE '^Sitios/services/general/' changed.txt && general=true || true
+          grep -qE '^Sitios/infra/' changed.txt && infra=true || true
+          grep -qE '^Sitios/infra/compose\.yml$' changed.txt && compose_changed=true || true
+          grep -qE '^Sitios/package(-lock)?\.json$' changed.txt && pkg_root=true || true
+          # Manual "todo": también general e infra, así alcanza para poblar un servidor nuevo
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.alcance }}" = "todo" ]; then
+            general=true
+            infra=true
+            compose_changed=true
+          fi
+
+          # Separar process-backed (Dockerfile) vs estáticos
+          docker_clients=""
+          static_clients=""
+          for name in $clients; do
+            if [ -f "Sitios/clients/$name/Dockerfile" ]; then
+              docker_clients=$(printf '%s\n%s\n' "$docker_clients" "$name" | sed '/^$/d')
+            else
+              static_clients=$(printf '%s\n%s\n' "$static_clients" "$name" | sed '/^$/d')
+            fi
+          done
+          # Manual "sitios": los clientes con Dockerfile necesitan Docker en el servidor
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.alcance }}" != "todo" ]; then
+            [ -z "$docker_clients" ] || echo "::notice::Alcance sitios: no se publican los clientes con Dockerfile: $(echo $docker_clients)"
+            docker_clients=""
+          fi
+
+          # Outputs multilínea (GitHub Actions)
+          {
+            echo "docker_clients<<EOF"
+            echo "$docker_clients"
+            echo "EOF"
+            echo "static_clients<<EOF"
+            echo "$static_clients"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "general=$general" >> "$GITHUB_OUTPUT"
+          echo "infra=$infra" >> "$GITHUB_OUTPUT"
+          echo "compose_changed=$compose_changed" >> "$GITHUB_OUTPUT"
+          echo "pkg_root=$pkg_root" >> "$GITHUB_OUTPUT"
+
+          need_npm=false
+          [ -n "$static_clients" ] && need_npm=true
+          # Validar lockfile aunque no haya build estático (p. ej. solo package-lock)
+          [ "$pkg_root" = "true" ] && need_npm=true
+          echo "need_npm=$need_npm" >> "$GITHUB_OUTPUT"
+
+          need_deploy=false
+          [ -n "$docker_clients" ] && need_deploy=true
+          [ -n "$static_clients" ] && need_deploy=true
+          [ "$general" = "true" ] && need_deploy=true
+          [ "$infra" = "true" ] && need_deploy=true
+          echo "need_deploy=$need_deploy" >> "$GITHUB_OUTPUT"
+
+          echo "docker_clients: $docker_clients"
+          echo "static_clients: $static_clients"
+          echo "general=$general infra=$infra compose_changed=$compose_changed pkg_root=$pkg_root"
+          echo "need_npm=$need_npm need_deploy=$need_deploy"
+
+      - name: Nada que desplegar
+        if: steps.changes.outputs.need_deploy != 'true' && steps.changes.outputs.need_npm != 'true'
+        run: echo "Sin cambios desplegables; saliendo."
+
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.need_npm == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: Sitios/package-lock.json
+
+      - name: Install dependencias (npm ci)
+        if: steps.changes.outputs.need_npm == 'true'
+        working-directory: Sitios
+        run: npm ci
+
+      - name: Build sitios estáticos
+        if: steps.changes.outputs.static_clients != ''
+        working-directory: Sitios
+        run: |
+          set -euo pipefail
+          while IFS= read -r name <&3; do
+            [ -z "$name" ] && continue
+            echo "Build estático: $name"
+            npm run build -w "$name"
+          done 3<<EOF
+          ${{ steps.changes.outputs.static_clients }}
+          EOF
+
+      - name: Build imágenes Docker (clientes)
+        if: steps.changes.outputs.docker_clients != ''
+        run: |
+          set -euo pipefail
+          while IFS= read -r name <&3; do
+            [ -z "$name" ] && continue
+            echo "Docker build: $name"
+            docker build -t "$name" -f "Sitios/clients/$name/Dockerfile" Sitios
+          done 3<<EOF
+          ${{ steps.changes.outputs.docker_clients }}
+          EOF
+
+      - name: Build imagen general
+        if: steps.changes.outputs.general == 'true'
+        run: docker build -t general -f Sitios/services/general/Dockerfile Sitios
+
+      # El runner entra por SSH a la IP pública de cada servidor (HETZNER_HOST y HETZNER_PROD_HOST),
+      # con el usuario HETZNER_USER y la clave privada HETZNER_SSH_KEY. El 22 tiene que estar abierto
+      # en el firewall de Hetzner.
+      - name: Publicar en Hetzner (QA y PROD)
+        if: steps.changes.outputs.need_deploy == 'true'
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          QA_HOST: ${{ secrets.HETZNER_HOST }}
+          PROD_HOST: ${{ secrets.HETZNER_PROD_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+          DOCKER_CLIENTS: ${{ steps.changes.outputs.docker_clients }}
+          STATIC_CLIENTS: ${{ steps.changes.outputs.static_clients }}
+          GENERAL: ${{ steps.changes.outputs.general }}
+          INFRA: ${{ steps.changes.outputs.infra }}
+          COMPOSE_CHANGED: ${{ steps.changes.outputs.compose_changed }}
+        run: |
+          set -euo pipefail
+          [ -n "$QA_HOST" ] || { echo "::error::Falta el secreto HETZNER_HOST (servidor de QA)"; exit 1; }
+          [ -n "$PROD_HOST" ] || { echo "::error::Falta el secreto HETZNER_PROD_HOST (servidor de producción)"; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Huella de la clave del secreto: tiene que coincidir con `ssh-keygen -lf` de la clave local
+          ssh-keygen -y -f ~/.ssh/id_ed25519 | ssh-keygen -lf -
+          SSH_OPTS="-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes"
+          on() { local h=$1; shift; ssh $SSH_OPTS "$USER@$h" "$@"; }
+          for h in "$QA_HOST" "$PROD_HOST"; do
+            # Sin el chequeo, si el 22 no contesta ssh-keyscan corta el job sin decir nada
+            keys=$(ssh-keyscan -T 15 -H "$h" 2>/dev/null || true)
+            [ -n "$keys" ] || { echo "::error::No se llega al SSH de $h. ¿Es la IP del servidor? ¿El firewall deja entrar al 22?"; exit 1; }
+            printf '%s\n' "$keys" >> ~/.ssh/known_hosts
+            on "$h" true || { echo "::error::$h rechazó la clave de HETZNER_SSH_KEY para HETZNER_USER"; exit 1; }
+          done
+
+          services=$(echo $DOCKER_CLIENTS)
+          [ "$GENERAL" = "true" ] && services="$services general"
+          services=$(echo $services)
+          compose_up=false
+          [ -n "$services" ] && compose_up=true
+          [ "$COMPOSE_CHANGED" = "true" ] && compose_up=true
+
+          # --- Imágenes (process-backed y general): a los dos servidores ---
+          for h in "$QA_HOST" "$PROD_HOST"; do
+            for name in $services; do
+              echo "Load image $name → $h"
+              docker save "$name" | gzip | on "$h" "gunzip | docker load"
+            done
+          done
+
+          # --- Infra: compose.yml y Caddyfile a los dos ---
+          # sites/: QA solo tiene el bloque de QA y producción todos los demás. --delete-excluded
+          # borra del servidor los que no le tocan.
+          sync_infra() {
+            local h=$1; shift
+            echo "Sync infra → $h"
+            scp $SSH_OPTS Sitios/infra/compose.yml Sitios/infra/Caddyfile "$USER@$h:/opt/web/"
+            on "$h" "mkdir -p /opt/web/sites"
+            rsync -az --delete --delete-excluded "$@" -e "ssh $SSH_OPTS" \
+              Sitios/infra/sites/ "$USER@$h:/opt/web/sites/"
+          }
+          if [ "$INFRA" = "true" ]; then
+            sync_infra "$QA_HOST" --include="$QA_DOMAIN.caddy" --exclude='*'
+            sync_infra "$PROD_HOST" --exclude="$QA_DOMAIN.caddy"
+          fi
+
+          # --- Estáticos: solo en QA, /opt/web/www/<name>.$QA_DOMAIN/ ---
+          # Producción no se toca: se promueve desde QA (promote.yml).
+          # versions/<host> guarda commit y fecha. Dice "publicando" mientras dura el rsync, así
+          # promote.yml no copia un QA a medio actualizar.
+          # Los loops leen la lista por el descriptor 3: ssh lee stdin y, con la lista en stdin, se
+          # comía los clientes que seguían (solo se publicaba el primero).
+          while IFS= read -r name <&3; do
+            [ -z "$name" ] && continue
+            build_dir="Sitios/clients/$name/build"
+            qa="$name.$QA_DOMAIN"
+            if [ ! -d "$build_dir" ]; then
+              echo "::error::No hay build en $build_dir"
+              exit 1
+            fi
+            echo "Publish estático $name → $QA_HOST:/opt/web/www/$qa/"
+            on "$QA_HOST" "mkdir -p /opt/web/www/$qa /opt/web/versions && echo publicando > /opt/web/versions/$qa"
+            rsync -az --delete -e "ssh $SSH_OPTS" \
+              "$build_dir/" "$USER@$QA_HOST:/opt/web/www/$qa/"
+            on "$QA_HOST" "echo '$GITHUB_SHA $(date -u +%Y-%m-%dT%H:%MZ)' > /opt/web/versions/$qa"
+          done 3<<EOF
+          $STATIC_CLIENTS
+          EOF
+
+          # --- Compose / Caddy, en cada servidor ---
+          for h in "$QA_HOST" "$PROD_HOST"; do
+            if [ "$compose_up" = "true" ]; then
+              if [ -n "$services" ] && [ "$COMPOSE_CHANGED" = "true" ]; then
+                # --remove-orphans: baja contenedores de servicios que se sacaron del compose
+                on "$h" "cd /opt/web && docker compose up -d --remove-orphans --force-recreate $services caddy"
+              elif [ -n "$services" ]; then
+                on "$h" "cd /opt/web && docker compose up -d --force-recreate $services"
+              else
+                on "$h" "cd /opt/web && docker compose up -d --remove-orphans"
+              fi
+            fi
+            if [ "$INFRA" = "true" ]; then
+              on "$h" "cd /opt/web && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile" \
+                || on "$h" "cd /opt/web && docker compose restart caddy"
+            fi
+          done

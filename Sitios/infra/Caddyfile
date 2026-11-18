@@ -1,0 +1,41 @@
+# Caddy en el VPS: /etc/caddy/Caddyfile
+# Cada dominio vive en sites/<dominio>.caddy
+{
+	# Certificados bajo demanda para *.qa.example.com (sites/qa.example.com.caddy).
+	# Caddy solo pide el certificado si el sitio ya está publicado en www/<host>/.
+	on_demand_tls {
+		ask http://localhost:5555/check
+	}
+}
+
+# Respuesta del `ask`: 200 si existe /srv/<host>/index.html. Solo escucha dentro del contenedor.
+# El dominio de QA tiene que coincidir con QA_DOMAIN (workflows y packages/kit/src/host.js).
+http://localhost:5555 {
+	@published {
+		expression {query.domain}.endsWith('.qa.example.com')
+		file {
+			root /srv
+			try_files /{query.domain}/index.html
+		}
+	}
+	respond @published 200
+	respond 404
+}
+
+# Sitio estático: sirve /srv/<carpeta> (www/<carpeta> en el VPS) y manda /api/* a general.
+# Lo usan QA y cada dominio de producción, así los dos sirven el build igual.
+# Uso: import estatico <carpeta>
+(estatico) {
+	encode gzip
+	handle_path /api/* {
+		reverse_proxy general:3100
+	}
+	handle {
+		root * /srv/{args[0]}
+		# /contacto sirve contacto.html (así lo escribe adapter-static)
+		try_files {path} {path}.html
+		file_server
+	}
+}
+
+import /etc/caddy/sites/*.caddy

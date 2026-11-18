@@ -1,0 +1,143 @@
+name: Promover a producción
+
+# Manual: Actions → Promover a producción → Run workflow.
+# El push a main publica solo en QA (deploy.yml). Este workflow copia a producción lo que ya está en
+# <cliente>.qa.example.com, sin volver a buildear: sale exactamente lo que se revisó en QA.
+# Hace falta `domain` en clients/<cliente>/site.json e infra/sites/<dominio>.caddy en main.
+# QA (HETZNER_HOST) y producción (HETZNER_PROD_HOST) son servidores distintos: el build de QA pasa
+# por el runner a incoming/ en producción, y ahí lo publica Sitios/infra/promote.sh.
+on:
+  workflow_dispatch:
+    inputs:
+      cliente:
+        description: "Carpeta del cliente en Sitios/clients (ej. biblioteca)"
+        required: true
+        type: string
+      accion:
+        description: "promover: QA → producción. volver: vuelve a la versión anterior (correrlo otra vez lo deshace)."
+        required: true
+        type: choice
+        default: promover
+        options:
+          - promover
+          - volver
+
+# Dos corridas sobre el mismo cliente no se pisan
+concurrency:
+  group: promote-${{ inputs.cliente }}
+  cancel-in-progress: false
+
+env:
+  # Igual que en deploy.yml
+  QA_DOMAIN: qa.example.com
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dominio del cliente
+        id: site
+        env:
+          CLIENTE: ${{ inputs.cliente }}
+        run: |
+          set -euo pipefail
+          if ! [[ $CLIENTE =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+            echo "::error::Cliente inválido: '$CLIENTE'. Es el nombre de la carpeta en Sitios/clients."
+            exit 1
+          fi
+          dir="Sitios/clients/$CLIENTE"
+          if [ ! -d "$dir" ]; then
+            echo "::error::No existe $dir."
+            exit 1
+          fi
+          if [ -f "$dir/Dockerfile" ]; then
+            echo "::error::$CLIENTE tiene Dockerfile. Promover es solo para sitios estáticos."
+            exit 1
+          fi
+          domain=""
+          if [ -f "$dir/site.json" ]; then
+            domain=$(node -e "process.stdout.write(String(require('./$dir/site.json').domain||'').trim().toLowerCase())")
+          fi
+          if [ -z "$domain" ]; then
+            echo "::error::$CLIENTE no tiene \"domain\" en site.json. Sin dominio solo existe QA."
+            exit 1
+          fi
+          case "$domain" in
+            "$QA_DOMAIN" | *."$QA_DOMAIN")
+              echo "::error::El domain de $CLIENTE ($domain) es de QA."
+              exit 1
+              ;;
+          esac
+          if [ ! -f "Sitios/infra/sites/$domain.caddy" ]; then
+            echo "::error::Falta Sitios/infra/sites/$domain.caddy. Crealo y pushealo a main antes de promover."
+            exit 1
+          fi
+          echo "domain=$domain" >> "$GITHUB_OUTPUT"
+          echo "qa=$CLIENTE.$QA_DOMAIN" >> "$GITHUB_OUTPUT"
+
+      # Igual que en deploy.yml: SSH a la IP pública de cada servidor
+      - name: ${{ inputs.accion == 'volver' && 'Volver a la versión anterior' || 'Copiar QA a producción' }}
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          QA_HOST: ${{ secrets.HETZNER_HOST }}
+          PROD_HOST: ${{ secrets.HETZNER_PROD_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+          ACCION: ${{ inputs.accion }}
+          QA: ${{ steps.site.outputs.qa }}
+          DOMAIN: ${{ steps.site.outputs.domain }}
+        run: |
+          set -euo pipefail
+          [ -n "$QA_HOST" ] || { echo "::error::Falta el secreto HETZNER_HOST (servidor de QA)"; exit 1; }
+          [ -n "$PROD_HOST" ] || { echo "::error::Falta el secreto HETZNER_PROD_HOST (servidor de producción)"; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          SSH_OPTS="-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes"
+          on() { local h=$1; shift; ssh $SSH_OPTS "$USER@$h" "$@"; }
+          for h in "$QA_HOST" "$PROD_HOST"; do
+            # Sin el chequeo, si el 22 no contesta ssh-keyscan corta el job sin decir nada
+            keys=$(ssh-keyscan -T 15 -H "$h" 2>/dev/null || true)
+            [ -n "$keys" ] || { echo "::error::No se llega al SSH de $h. ¿Es la IP del servidor? ¿El firewall deja entrar al 22?"; exit 1; }
+            printf '%s\n' "$keys" >> ~/.ssh/known_hosts
+            on "$h" true || { echo "::error::$h rechazó la clave de HETZNER_SSH_KEY para HETZNER_USER"; exit 1; }
+          done
+          qa_version() { on "$QA_HOST" "cat /opt/web/versions/$QA 2>/dev/null" || true; }
+
+          # El bloque de Caddy lo sube deploy.yml con el push de infra/
+          if ! on "$PROD_HOST" "test -f /opt/web/sites/$DOMAIN.caddy"; then
+            echo "::error::Producción no tiene sites/$DOMAIN.caddy. Esperá a que termine el deploy del push que lo agregó."
+            exit 1
+          fi
+
+          # QA y DOMAIN ya están validados (letras, números, guiones y puntos)
+          if [ "$ACCION" = promover ]; then
+            # QA y producción son servidores distintos: el build pasa por el runner a incoming/
+            v_qa=$(qa_version)
+            [ "$v_qa" != publicando ] || { echo "::error::El deploy está publicando en QA ($QA). Probá de nuevo cuando termine."; exit 1; }
+            on "$QA_HOST" "test -f /opt/web/www/$QA/index.html" || { echo "::error::No hay nada publicado en QA ($QA)."; exit 1; }
+            rsync -az --delete -e "ssh $SSH_OPTS" "$USER@$QA_HOST:/opt/web/www/$QA/" qa-build/
+            # Si QA cambió mientras se copiaba, la copia puede tener archivos de dos versiones
+            [ "$(qa_version)" = "$v_qa" ] || { echo "::error::QA cambió durante la copia. Probá de nuevo."; exit 1; }
+            on "$PROD_HOST" "mkdir -p /opt/web/incoming"
+            rsync -az --delete -e "ssh $SSH_OPTS" qa-build/ "$USER@$PROD_HOST:/opt/web/incoming/$QA/"
+            printf '%s\n' "$v_qa" | on "$PROD_HOST" "cat > /opt/web/incoming/$QA.version"
+          fi
+
+          on "$PROD_HOST" bash -s -- "$ACCION" "$QA" "$DOMAIN" < Sitios/infra/promote.sh | tee promote.out
+          v=$(qa_version)
+          echo "- QA ($QA): ${v:-sin datos}" | tee -a promote.out
+          grep -v '^::' promote.out >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Probar https://${{ steps.site.outputs.domain }}/
+        env:
+          DOMAIN: ${{ steps.site.outputs.domain }}
+        run: |
+          code=$(curl -sS -o /dev/null -m 20 -w '%{http_code}' "https://$DOMAIN/" || true)
+          if [ "$code" = "200" ]; then
+            echo "https://$DOMAIN/ responde 200."
+          else
+            echo "::warning::https://$DOMAIN/ respondió '${code}'. Lo publicado ya está en el servidor; revisá DNS y certificado (docs/hetzner.md, \"Cuando un dominio no abre\")."
+          fi

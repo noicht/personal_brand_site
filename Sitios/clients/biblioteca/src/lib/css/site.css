@@ -1,0 +1,1094 @@
+/* Un solo CSS por sitio. El fondo es el salón vivo (LivingLibrary); el texto va en placas. */
+
+:root {
+  --ink: #f4f1ea;
+  --muted: color-mix(in srgb, #f4f1ea 78%, transparent);
+  --accent: #c98a63;
+  /* Azul marino cálido: profundo, con un poco de rojo para que no se hiele junto al cobre y la madera. */
+  --navy: #243248;
+  --plate: color-mix(in srgb, var(--navy) 78%, transparent);
+  --font: "Segoe UI", system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: #241c16;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  /* Mientras carga la foto, y en el rebote del scroll */
+  background: #241c16;
+  line-height: 1.5;
+}
+
+/* Perillas del salón. LivingLibrary lee calma y contraste; la transparencia la aplica .bib-bg.
+   ?regulador las mueve en vivo y las escribe en línea en .bib. */
+.bib {
+  isolation: isolate;
+  min-height: 100vh;
+  --primary: var(--navy);
+  --papiro: #f4f1ea;
+  --accent-light: var(--accent);
+  --shadow: 0 18px 40px color-mix(in srgb, #000 28%, transparent);
+  --fondo-calma: 0.31;
+  --fondo-transparencia: 0.11;
+  --fondo-contraste: 1.24;
+}
+
+.bib-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: #241c16 center / cover no-repeat;
+  opacity: calc(1 - var(--fondo-transparencia));
+  pointer-events: none;
+}
+
+.bib-bg canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+.bib-bg.is-ready canvas {
+  opacity: 1;
+}
+
+/* Velo azul marino sobre la foto, el libro y el polvo: comprime los brillos y tiñe. Calma × 40%. */
+.bib-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--primary);
+  opacity: calc(var(--fondo-calma) * 0.4);
+}
+
+/* Con ?fondo en la URL: página, sección y recorrido de la cámara */
+.bib-bg-hud {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 100;
+  max-width: calc(100% - 32px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #1a1a1a 85%, transparent);
+  color: #fff;
+  font: 12px/1.4 ui-monospace, monospace;
+  pointer-events: none;
+}
+
+/* Regulador del fondo (FondoRegulador, ?regulador) */
+.bib-tuner {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 100;
+  display: grid;
+  gap: 10px;
+  width: 260px;
+  max-width: calc(100% - 32px);
+  padding: 12px 14px 14px;
+  border: 1px solid color-mix(in srgb, var(--papiro) 22%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 94%, transparent);
+  box-shadow: var(--shadow);
+  color: var(--papiro);
+  font-size: 13px;
+  line-height: 1.3;
+  cursor: default;
+}
+
+.bib-tuner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bib-tuner-head strong {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.bib-tuner label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.bib-tuner label span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.bib-tuner output {
+  color: var(--accent-light);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bib-tuner input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent-light);
+  cursor: pointer;
+}
+
+.bib-tuner code {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #000 25%, transparent);
+  color: var(--papiro);
+  font: 11px/1.5 ui-monospace, monospace;
+  user-select: all;
+}
+
+.bib-tuner button {
+  color: var(--papiro);
+  font: inherit;
+}
+
+.bib-tuner .bib-tuner-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.bib-tuner-reset {
+  justify-self: start;
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, var(--papiro) 40%, transparent);
+  border-radius: 999px;
+}
+
+.bib-tuner-close:hover,
+.bib-tuner-reset:hover {
+  background: color-mix(in srgb, var(--papiro) 14%, transparent);
+}
+
+.bib-tuner button:focus-visible,
+.bib-tuner input:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
+}
+
+.bib:has(.bib-bg-hud) .bib-tuner {
+  bottom: 56px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-wrap {
+  width: min(1080px, calc(100% - 2.5rem));
+  margin-inline: auto;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--navy) 72%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 4rem;
+  gap: 1rem;
+}
+
+.site-logo {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.site-logo img {
+  height: 2.7rem;
+  width: auto;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.95rem;
+}
+
+.site-hero {
+  min-height: min(88vh, 720px);
+  display: grid;
+  align-items: end;
+  background: none;
+  padding: 4rem 0 3rem;
+}
+
+.site-hero .site-wrap,
+.site-section .site-wrap {
+  padding: 1.35rem 1.5rem;
+  border-radius: 18px;
+  background: var(--plate);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #f4f1ea 18%, transparent),
+    0 12px 28px color-mix(in srgb, #000 28%, transparent);
+}
+
+.site-brand {
+  margin: 0 0 0.75rem;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #f4f1ea;
+}
+
+.site-hero h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-weight: 600;
+  max-width: 18ch;
+}
+
+.site-lead {
+  margin: 0 0 1.5rem;
+  max-width: 36ch;
+  color: var(--muted);
+}
+
+.site-btn {
+  display: inline-block;
+  padding: 0.7rem 1.2rem;
+  background: var(--accent);
+  color: var(--navy);
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+.site-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.site-btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 42%, transparent);
+}
+
+.site-section {
+  padding: 0 0 2.5rem;
+}
+
+.site-section a {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.site-footer {
+  padding: 1.5rem 0 2.5rem;
+  border: 0;
+  background: color-mix(in srgb, var(--navy) 82%, transparent);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Copyright a la izquierda; lo que se sume (links, redes) va a la derecha. En móvil se apilan */
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 1.5rem;
+}
+
+code {
+  font-size: 0.9em;
+}
+
+.site-hero-logo {
+  display: block;
+  width: min(180px, 64%);
+  height: auto;
+  margin: 0 0 0.9rem;
+}
+
+.site-kicker {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.site-section h2 {
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.site-mark {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--muted);
+}
+
+.site-note {
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.75rem;
+  margin-top: 1.15rem;
+}
+
+/* Botones debajo de las tarjetas (Contacto) */
+.site-grid + .site-actions {
+  margin-top: 1.15rem;
+}
+
+.site-card {
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+.site-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.site-card p,
+.site-card-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.site-section a.site-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-section a.site-card:hover {
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+.site-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-tags li {
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 640px) {
+  .site-header-inner {
+    flex-wrap: wrap;
+    padding-block: 0.65rem;
+  }
+
+  .site-nav {
+    flex-wrap: wrap;
+    gap: 0.65rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* ============================================================================================
+   Puerta de entrada (Puerta.svelte)
+   Una pared oscura con una puerta de madera de dos hojas y un montante de vidrio en abanico.
+   El vano y el montante son agujeros de verdad (mask-image en .bib-puerta-pared): detrás está el
+   sitio, con el salón vivo. Toda la geometría sale del ancho del vano, --w.
+   ============================================================================================ */
+
+/* Ya se entró en esta sesión (lo pone app.html antes de pintar): la puerta no se muestra */
+.bib-adentro .bib-puerta {
+  display: none;
+}
+
+/* En la puerta: sin scroll, y el header escondido para que no se vea por el montante */
+.bib-en-la-puerta {
+  overflow: hidden;
+}
+
+.site-header {
+  transition: opacity 0.9s ease 0.25s;
+}
+
+.bib-en-la-puerta .site-header {
+  opacity: 0;
+  transition: none;
+}
+
+.bib-puerta {
+  --vh: 100vh;
+  /* Vano: ancho y alto (dos hojas de 0,72 × 2,1, como una puerta doble de verdad); el montante es
+     un semicírculo de radio --r sobre el vano. El ancho se acota para que entre todo a lo alto:
+     marco ×2 + montante + vano ≈ 2,07 × --w, más el texto */
+  --w: min(440px, 80vw, calc((var(--vh) - 9.5rem) * 0.48));
+  --h: calc(var(--w) * 1.45);
+  --r: calc(var(--w) / 2);
+  --marco: max(10px, calc(var(--w) * 0.06));
+  --texto: 7.5rem;
+  --bloque: calc(var(--marco) * 2 + var(--r) + var(--h) + var(--texto));
+  --top: max(0.75rem, calc((var(--vh) - var(--bloque)) / 2));
+  --arco-top: calc(var(--top) + var(--marco));
+  --vano-top: calc(var(--arco-top) + var(--r) + var(--marco));
+  --piso: calc(var(--vano-top) + var(--h));
+  /* Paleta de la escena: nogal, latón y la luz cálida del salón */
+  --madera: #5b3a1f;
+  --madera-clara: #8a5a33;
+  --madera-oscura: #2c190b;
+  --laton: #d9b26f;
+  --serif: "Playfair Display", Georgia, "Times New Roman", serif;
+  /* Veta: fibras finas y verticales (ruido estirado), en marrón casi negro */
+  --veta: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='480'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.22 .012' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .05 0 0 0 0 .025 0 0 0 0 .01 .9 0 0 0 -.36'/%3E%3C/filter%3E%3Crect width='160' height='480' filter='url(%23f)'/%3E%3C/svg%3E");
+  /* Grano de la pared: ruido claro muy leve, para que los degradés no banden */
+  --grano: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .9 0 0 0 0 .75 .16 0 0 0 -.04'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23f)'/%3E%3C/svg%3E");
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  color: var(--papiro);
+}
+
+@supports (height: 100dvh) {
+  .bib-puerta {
+    --vh: 100dvh;
+  }
+}
+
+/* La escena entera es lo que se agranda al cruzar: la cámara pasa por el centro del vano */
+.bib-puerta-escena {
+  position: absolute;
+  inset: 0;
+  transform-origin: var(--ox, 50%) var(--oy, 50%);
+}
+
+/* Pared y piso, con viñeta. Dos agujeros: el vano (1px más chico que el marco, para que ningún
+   filo de luz asome al costado de las jambas) y el semicírculo del montante */
+.bib-puerta-pared {
+  position: absolute;
+  inset: 0;
+  background:
+    var(--grano),
+    radial-gradient(ellipse 75% 70% at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.6) 100%),
+    linear-gradient(
+      180deg,
+      #1c130b 0,
+      #16100a var(--piso),
+      #3a2714 var(--piso),
+      #1a1109 calc(var(--piso) + 3px),
+      #110b07 calc(var(--piso) + 3px),
+      #060403 100%
+    );
+  -webkit-mask-image:
+    linear-gradient(#000 0 0),
+    radial-gradient(circle at 50% 100%, #000 calc(var(--r) - 1.5px), transparent calc(var(--r) - 0.5px)),
+    linear-gradient(#000 0 0);
+  -webkit-mask-size:
+    calc(var(--w) - 2px) calc(var(--h) - 1px),
+    calc(var(--r) * 2) var(--r),
+    100% 100%;
+  -webkit-mask-position:
+    50% calc(var(--vano-top) + 1px),
+    50% var(--arco-top),
+    0 0;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: xor, xor, source-over;
+  mask-image:
+    linear-gradient(#000 0 0),
+    radial-gradient(circle at 50% 100%, #000 calc(var(--r) - 1.5px), transparent calc(var(--r) - 0.5px)),
+    linear-gradient(#000 0 0);
+  mask-size:
+    calc(var(--w) - 2px) calc(var(--h) - 1px),
+    calc(var(--r) * 2) var(--r),
+    100% 100%;
+  mask-position:
+    50% calc(var(--vano-top) + 1px),
+    50% var(--arco-top),
+    0 0;
+  mask-repeat: no-repeat;
+  mask-composite: exclude, exclude, add;
+}
+
+/* La puerta entera es el botón */
+.bib-puerta-boton {
+  position: absolute;
+  left: calc(50% - var(--r) - var(--marco));
+  top: var(--top);
+  width: calc(var(--w) + var(--marco) * 2);
+  height: calc(var(--marco) * 2 + var(--r) + var(--h));
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bib-puerta-boton:focus-visible {
+  outline: 2px solid var(--laton);
+  outline-offset: 10px;
+}
+
+.bib-puerta-boton > span {
+  position: absolute;
+  display: block;
+}
+
+/* Marco: la luz viene de arriba, el canto superior clarea y el inferior se oscurece */
+.bib-puerta-cabezal,
+.bib-puerta-travesano,
+.bib-puerta-jamba,
+.bib-puerta-arco {
+  background:
+    var(--veta),
+    linear-gradient(180deg, var(--madera-clara), var(--madera) 40%, var(--madera-oscura));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.65);
+}
+
+.bib-puerta-cabezal {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--marco);
+  /* Cornisa: sombra hacia abajo sobre las enjutas */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.22),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.bib-puerta-jamba {
+  top: var(--marco);
+  bottom: 0;
+  width: var(--marco);
+  background:
+    var(--veta),
+    linear-gradient(90deg, var(--madera-clara), var(--madera) 45%, var(--madera-oscura));
+  box-shadow:
+    inset 1px 0 0 rgba(255, 220, 170, 0.16),
+    inset -1px 0 0 rgba(0, 0, 0, 0.6);
+}
+
+.bib-puerta-jamba.is-izq {
+  left: 0;
+}
+
+.bib-puerta-jamba.is-der {
+  right: 0;
+  background:
+    var(--veta),
+    linear-gradient(270deg, var(--madera-clara), var(--madera) 45%, var(--madera-oscura));
+  box-shadow:
+    inset -1px 0 0 rgba(255, 220, 170, 0.16),
+    inset 1px 0 0 rgba(0, 0, 0, 0.6);
+}
+
+/* Enjutas: la madera alrededor del arco. El semicírculo queda recortado y lo ocupa el vidrio */
+.bib-puerta-arco {
+  top: var(--marco);
+  left: var(--marco);
+  width: var(--w);
+  height: var(--r);
+  background:
+    radial-gradient(
+      circle at 50% 100%,
+      transparent calc(var(--r) - 1px),
+      rgba(255, 220, 170, 0.3) var(--r),
+      transparent calc(var(--r) + 2.5px)
+    ),
+    var(--veta),
+    linear-gradient(180deg, var(--madera) 0%, var(--madera-oscura) 100%);
+  -webkit-mask-image: radial-gradient(circle at 50% 100%, transparent calc(var(--r) - 1px), #000 var(--r));
+  mask-image: radial-gradient(circle at 50% 100%, transparent calc(var(--r) - 1px), #000 var(--r));
+}
+
+/* Montante en abanico: el salón se ve borroso y cálido detrás del vidrio; cinco varillas y un
+   arco interior de madera, y el reflejo del vidrio arriba a la izquierda */
+.bib-puerta-vidrio {
+  top: var(--marco);
+  left: var(--marco);
+  width: var(--w);
+  height: var(--r);
+  border-radius: var(--r) var(--r) 0 0;
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.04) 38%, transparent 55%),
+    radial-gradient(circle at 50% 100%, var(--madera-oscura) 7%, transparent calc(7% + 1px)),
+    radial-gradient(
+      circle at 50% 100%,
+      transparent calc(var(--r) * 0.52 - 1px),
+      var(--madera-oscura) calc(var(--r) * 0.52),
+      transparent calc(var(--r) * 0.52 + 2px)
+    ),
+    conic-gradient(
+      from 270deg at 50% 100%,
+      transparent 0 29.4deg,
+      var(--madera-oscura) 29.4deg 30.6deg,
+      transparent 30.6deg 59.4deg,
+      var(--madera-oscura) 59.4deg 60.6deg,
+      transparent 60.6deg 89.4deg,
+      var(--madera-oscura) 89.4deg 90.6deg,
+      transparent 90.6deg 119.4deg,
+      var(--madera-oscura) 119.4deg 120.6deg,
+      transparent 120.6deg 149.4deg,
+      var(--madera-oscura) 149.4deg 150.6deg,
+      transparent 150.6deg
+    ),
+    linear-gradient(180deg, rgba(255, 205, 140, 0.22), rgba(255, 165, 85, 0.42));
+  -webkit-backdrop-filter: blur(7px) saturate(1.2) brightness(1.3);
+  backdrop-filter: blur(7px) saturate(1.2) brightness(1.3);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 0 46px 6px rgba(255, 180, 100, 0.2);
+}
+
+/* Travesaño entre el montante y las hojas, con la placa */
+.bib-puerta-travesano {
+  top: calc(var(--marco) + var(--r));
+  left: var(--marco);
+  right: var(--marco);
+  height: var(--marco);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.65),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.bib-puerta-placa {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  padding: 0.38em 0.9em 0.36em 1.1em;
+  white-space: nowrap;
+  font-size: clamp(0.55rem, calc(var(--w) * 0.03), 0.72rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.34em;
+  text-indent: 0.17em;
+  text-transform: uppercase;
+  color: #3a2408;
+  background: linear-gradient(170deg, #f2d99f 0%, #caa05a 45%, #8f662c 100%);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 210, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 2px 4px rgba(0, 0, 0, 0.55);
+}
+
+/* Tornillos de la placa */
+.bib-puerta-placa::before,
+.bib-puerta-placa::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff2cc, #7a5520 75%);
+}
+
+.bib-puerta-placa::before {
+  left: 4px;
+}
+
+.bib-puerta-placa::after {
+  right: 4px;
+}
+
+/* Vano: las hojas giran hacia adentro. Lo que pasa el plano del marco queda tapado por él */
+.bib-puerta-vano {
+  top: calc(var(--marco) * 2 + var(--r));
+  left: var(--marco);
+  width: var(--w);
+  height: var(--h);
+  overflow: hidden;
+  perspective: calc(var(--w) * 2.4);
+  perspective-origin: 50% 45%;
+}
+
+/* La luz del salón. Cerrada, solo se ve por la rendija y por debajo; al abrir encandila un
+   instante y se apaga: el ojo se acostumbra y aparece el salón */
+.bib-puerta-luz {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 70% at 50% 45%, #fff3dc, #ffd59a 40%, #e8a862 100%);
+  opacity: 0.95;
+}
+
+/* Hojas: nogal con veta, un filo claro arriba y la rendija de 2px al medio, 3px abajo */
+.bib-puerta-hoja {
+  position: absolute;
+  top: 0;
+  bottom: 3px;
+  width: calc(50% - 1px);
+  background:
+    var(--veta),
+    linear-gradient(90deg, #4b2c15 0%, #6a4120 35%, #5d3819 65%, #41240f 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 215, 170, 0.07),
+    inset 0 2px 0 rgba(255, 220, 180, 0.08);
+  transform-style: preserve-3d;
+  backface-visibility: visible;
+  transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.bib-puerta-hoja.is-izq {
+  left: 0;
+  transform-origin: 0 50%;
+}
+
+.bib-puerta-hoja.is-der {
+  right: 0;
+  transform-origin: 100% 50%;
+}
+
+/* Resplandor de la rendija y de abajo sobre la madera */
+.bib-puerta-hoja::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 200, 130, 0.3), transparent 24%),
+    linear-gradient(0deg, rgba(255, 190, 120, 0.24), transparent 9%);
+  opacity: 0.6;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.bib-puerta-hoja.is-izq::after {
+  background:
+    linear-gradient(270deg, rgba(255, 200, 130, 0.3), transparent 24%),
+    linear-gradient(0deg, rgba(255, 190, 120, 0.24), transparent 9%);
+}
+
+/* Tableros rehundidos con moldura: sombra adentro arriba-izquierda, filo claro en la moldura */
+.bib-puerta-panel {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  border-radius: 1px;
+  background:
+    var(--veta),
+    linear-gradient(180deg, #4a2a13, #5f3919 40%, #4b2a12);
+  box-shadow:
+    inset 2px 3px 5px rgba(0, 0, 0, 0.6),
+    inset -1px -2px 3px rgba(255, 205, 160, 0.1),
+    0 0 0 2px #2b170a,
+    0 -1px 0 3px rgba(255, 210, 165, 0.14),
+    0 2px 0 3px rgba(0, 0, 0, 0.4);
+}
+
+.bib-puerta-panel:nth-child(1) {
+  top: 8%;
+  height: 44%;
+}
+
+.bib-puerta-panel:nth-child(2) {
+  top: 60%;
+  height: 30%;
+}
+
+/* Tiradores de latón: barra vertical con dos rosetas */
+.bib-puerta-tirador {
+  position: absolute;
+  top: 43%;
+  width: 4.5%;
+  height: 20%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5a3a10, #c89b55 30%, #f3dfae 48%, #b98a44 65%, #5a3a10);
+  box-shadow:
+    3px 4px 8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: filter 0.5s ease;
+}
+
+.bib-puerta-hoja.is-izq .bib-puerta-tirador {
+  right: 9%;
+}
+
+.bib-puerta-hoja.is-der .bib-puerta-tirador {
+  left: 9%;
+}
+
+.bib-puerta-tirador::before,
+.bib-puerta-tirador::after {
+  content: "";
+  position: absolute;
+  left: -45%;
+  width: 190%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f6e4b6, #b9893f 55%, #5a3a10);
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.bib-puerta-tirador::before {
+  top: -7%;
+}
+
+.bib-puerta-tirador::after {
+  bottom: -7%;
+}
+
+/* Grosor de la hoja: una tabla perpendicular en el borde libre, que aparece al girar */
+.bib-puerta-canto {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--w) * 0.035);
+  background: linear-gradient(180deg, #3a2210, #2a160a);
+}
+
+.bib-puerta-hoja.is-izq .bib-puerta-canto {
+  right: 0;
+  transform-origin: 100% 50%;
+  transform: rotateY(-90deg);
+}
+
+.bib-puerta-hoja.is-der .bib-puerta-canto {
+  left: 0;
+  transform-origin: 0 50%;
+  transform: rotateY(90deg);
+}
+
+/* Luz que se cuela por debajo y se posa en el piso */
+.bib-puerta-umbral {
+  top: 100%;
+  left: 50%;
+  width: calc(var(--w) * 2.2);
+  height: calc(var(--w) * 0.5);
+  background: radial-gradient(
+    ellipse at 50% 0,
+    rgba(255, 200, 130, 0.38),
+    rgba(255, 170, 90, 0.12) 35%,
+    transparent 65%
+  );
+  transform: translateX(-50%);
+  transform-origin: 50% 0;
+  opacity: 0.85;
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s ease;
+  pointer-events: none;
+}
+
+/* Con el mouse encima (o el foco), la puerta se entreabre y la luz crece */
+.bib-puerta-boton:hover .bib-puerta-hoja.is-izq,
+.bib-puerta-boton:focus-visible .bib-puerta-hoja.is-izq {
+  transform: rotateY(5deg);
+}
+
+.bib-puerta-boton:hover .bib-puerta-hoja.is-der,
+.bib-puerta-boton:focus-visible .bib-puerta-hoja.is-der {
+  transform: rotateY(-5deg);
+}
+
+.bib-puerta-boton:hover .bib-puerta-hoja::after,
+.bib-puerta-boton:focus-visible .bib-puerta-hoja::after {
+  opacity: 1;
+}
+
+.bib-puerta-boton:hover .bib-puerta-tirador,
+.bib-puerta-boton:focus-visible .bib-puerta-tirador {
+  filter: brightness(1.12) drop-shadow(0 0 5px rgba(255, 205, 130, 0.55));
+}
+
+.bib-puerta-boton:hover .bib-puerta-umbral,
+.bib-puerta-boton:focus-visible .bib-puerta-umbral {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.15);
+}
+
+/* Texto debajo de la puerta */
+.bib-puerta-texto {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: calc(var(--piso) + 1.5rem);
+  text-align: center;
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+
+.bib-puerta-titulo {
+  margin: 0;
+  font: italic 500 clamp(2rem, 5.2vw, 3.1rem) / 1.1 var(--serif);
+  letter-spacing: 0.01em;
+  color: #f4ead8;
+  text-shadow:
+    0 2px 24px rgba(255, 180, 110, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.bib-puerta-pista {
+  margin: 0.9rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+  color: rgba(244, 241, 234, 0.62);
+  animation: bib-pista 2.8s ease-in-out infinite;
+}
+
+@keyframes bib-pista {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Abriendo: las hojas giran hacia adentro (la derecha un poco después, como empujadas por una
+   mano), la luz encandila y se apaga y la cámara cruza el vano. No hace falta fundir nada: con el
+   zoom final el agujero del vano tapa toda la pantalla y el resto de la escena queda afuera. (Un
+   fundido en el contenedor, además, le sacaba el desenfoque al vidrio del montante mientras se abría) */
+.bib-puerta.is-abriendo {
+  pointer-events: none;
+}
+
+.is-abriendo .bib-puerta-hoja {
+  transition: transform 1.6s cubic-bezier(0.55, 0.02, 0.25, 1);
+}
+
+.is-abriendo .bib-puerta-hoja.is-izq {
+  transform: rotateY(102deg);
+}
+
+.is-abriendo .bib-puerta-hoja.is-der {
+  transform: rotateY(-102deg);
+  transition-delay: 0.1s;
+}
+
+.is-abriendo .bib-puerta-hoja::after {
+  opacity: 1;
+}
+
+.is-abriendo .bib-puerta-luz {
+  animation: bib-destello 1.6s ease-out forwards;
+}
+
+@keyframes bib-destello {
+  0% {
+    opacity: 0.95;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.is-abriendo .bib-puerta-umbral {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.6);
+  transition:
+    opacity 1s ease,
+    transform 1.2s ease;
+}
+
+.is-abriendo .bib-puerta-escena {
+  transform: scale(var(--zoom, 6));
+  transition: transform 1.7s cubic-bezier(0.6, 0, 0.55, 1) 0.8s;
+}
+
+.is-abriendo .bib-puerta-texto {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* Movimiento reducido: ni giro, ni viaje, ni latido. La puerta se funde */
+.bib-puerta.is-quieta .bib-puerta-hoja,
+.bib-puerta.is-quieta .bib-puerta-escena,
+.bib-puerta.is-quieta .bib-puerta-umbral {
+  transition: none;
+  transform: none;
+}
+
+.bib-puerta.is-quieta .bib-puerta-umbral,
+.bib-puerta.is-quieta .bib-puerta-boton:hover .bib-puerta-umbral,
+.bib-puerta.is-quieta .bib-puerta-boton:focus-visible .bib-puerta-umbral {
+  transform: translateX(-50%);
+}
+
+.bib-puerta.is-quieta .bib-puerta-boton:hover .bib-puerta-hoja,
+.bib-puerta.is-quieta .bib-puerta-boton:focus-visible .bib-puerta-hoja {
+  transform: none;
+}
+
+.bib-puerta.is-quieta .bib-puerta-luz,
+.bib-puerta.is-quieta .bib-puerta-pista {
+  animation: none;
+}
+
+.bib-puerta.is-quieta.is-abriendo {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+/* Pantallas bajas (celular apaisado): la pista estorba más de lo que ayuda */
+@media (max-height: 520px) {
+  .bib-puerta {
+    --texto: 5rem;
+  }
+
+  .bib-puerta-pista {
+    display: none;
+  }
+}

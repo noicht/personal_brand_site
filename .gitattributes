@@ -1,0 +1,3 @@
+# Todo el texto con LF, también en Windows: promote.sh y los workflows corren en Linux, y un CRLF
+# los rompe ("$'\r': command not found"). Las imágenes las detecta git como binarias.
+* text=auto eol=lf

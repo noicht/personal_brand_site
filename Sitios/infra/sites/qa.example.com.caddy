@@ -1,0 +1,13 @@
+# QA: <sitio>.qa.example.com sirve /opt/web/www/<sitio>.qa.example.com/
+# El CI publica ahí cada sitio estático. No hace falta un bloque por sitio.
+#
+# El certificado de cada subdominio se pide en el primer acceso (on_demand_tls en el Caddyfile),
+# y solo si el sitio ya está publicado. El DNS es un solo registro: A `*.qa` → IP del servidor de QA.
+*.qa.example.com {
+	tls {
+		on_demand
+	}
+	# QA no se indexa en buscadores
+	header X-Robots-Tag "noindex, nofollow"
+	import estatico {host}
+}

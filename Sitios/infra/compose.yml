@@ -1,0 +1,26 @@
+services:
+  # Features compartidas por varios sitios (formularios de contacto, webhooks, proxies a APIs).
+  # Los sitios estáticos llegan por Caddy: handle_path /api/* → general:3100
+  general:
+    image: general
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3100"
+      # Orígenes extra si algún sitio llama directo (sin proxy de Caddy).
+      # ALLOWED_ORIGINS: "https://example.com,https://otro.example.com"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./sites:/etc/caddy/sites
+      - ./www:/srv
+      - ./data:/data
+      - ./data/config:/config

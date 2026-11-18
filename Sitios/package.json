@@ -1,0 +1,14 @@
+{
+  "name": "sitios",
+  "private": true,
+  "version": "0.1.0",
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^4.0.1",
+    "svelte": "^5.57.3"
+  },
+  "workspaces": [
+    "clients/*",
+    "services/*",
+    "packages/*"
+  ]
+}

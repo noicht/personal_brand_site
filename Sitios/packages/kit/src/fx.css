@@ -1,0 +1,23 @@
+/**
+ * Efectos de motion compartidos (@sitios/kit).
+ * Prefijo neutro `.fx-` — no usar clases de marca (ln-, pg-, etc.).
+ */
+
+.fx-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.fx-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
