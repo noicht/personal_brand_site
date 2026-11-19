@@ -1,0 +1,413 @@
+/* Terminal del hero y paleta de comandos. */
+
+/* ---------- Terminal ---------- */
+
+.n0-term {
+  --panel-accent: var(--c-amber);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+/* `deploy --prod`: los corchetes del panel pasan a verde un momento */
+.n0-term.is-pulse {
+  --panel-accent: var(--c-green);
+  border-color: color-mix(in srgb, var(--c-green) 45%, var(--c-border));
+}
+
+.n0-term-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 2.5rem;
+  padding: 0 var(--sp-3);
+  border-bottom: var(--border);
+  color: var(--c-muted);
+}
+
+.n0-term-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n0-term-skip {
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-muted);
+  background: transparent;
+  border: var(--border-control);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+
+.n0-term-skip:hover {
+  color: var(--c-text);
+  border-color: var(--c-amber);
+}
+
+/* Alto fijo: lo que se imprime scrollea adentro y la página no salta */
+.n0-term-screen {
+  height: 17.5rem;
+  padding: var(--sp-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border-strong) transparent;
+  cursor: text;
+}
+
+.n0-term-screen:focus-visible {
+  outline-offset: -2px;
+}
+
+.n0-term-line {
+  min-height: 1.55em;
+  overflow-wrap: anywhere;
+}
+
+/* El texto y los tags conservan sus espacios: las tablas (help, cat stack) se alinean con ellos */
+.n0-term-text {
+  white-space: pre-wrap;
+}
+
+.n0-term-tag {
+  white-space: pre;
+}
+
+.n0-term-line.is-input {
+  color: var(--c-text);
+}
+
+.n0-term-line.is-head {
+  color: var(--c-amber);
+}
+
+.n0-term-line.is-muted,
+.n0-term-line.is-boot {
+  color: var(--c-muted);
+}
+
+.n0-term-line.is-error {
+  color: var(--c-amber);
+}
+
+.n0-term-line.is-error::before {
+  content: "! ";
+}
+
+.n0-term-tag {
+  color: var(--c-cyan);
+}
+
+.n0-term-line.is-ok .n0-term-tag,
+.n0-term-line.is-boot .n0-term-tag {
+  color: var(--c-green);
+}
+
+.n0-term-ps {
+  color: var(--c-green);
+}
+
+.n0-term-line a {
+  text-decoration: underline;
+  text-decoration-color: var(--c-border-strong);
+  text-underline-offset: 0.2em;
+}
+
+.n0-term-line a:hover {
+  color: var(--c-amber);
+  text-decoration-color: currentColor;
+}
+
+/* Arranque tipeado. Cada línea trae --n (caracteres), --d (espera) y --t (duración) desde
+   boot.ts y se descubre de a un carácter. Sin animación (movimiento reducido, o al saltearla)
+   quedan todas a la vista. */
+.n0-term-line.is-typed {
+  box-sizing: content-box;
+  width: calc(var(--n) * 1ch);
+  max-width: calc(100% - 0.6ch);
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 0.6ch solid transparent;
+  animation:
+    n0-type var(--t) steps(var(--n), end) var(--d) both,
+    n0-caret var(--t) step-end var(--d) both;
+}
+
+@keyframes n0-type {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes n0-caret {
+  0%,
+  100% {
+    border-right-color: transparent;
+  }
+
+  1% {
+    border-right-color: var(--c-green);
+  }
+}
+
+.n0-term-line.is-typed .n0-term-text {
+  white-space: pre;
+}
+
+.n0-term.is-settled .n0-term-line.is-typed {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n0-term-line.is-typed {
+    animation: none;
+  }
+}
+
+.n0-term-form {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  border-top: var(--border);
+}
+
+.n0-term-form label {
+  flex: none;
+  color: var(--c-green);
+}
+
+/* 16px en pantallas táctiles: con menos, iOS hace zoom al enfocar el campo */
+.n0-term-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0;
+  font-size: var(--fs-md);
+  background: transparent;
+  border: 0;
+  caret-color: var(--c-green);
+}
+
+.n0-term-input::placeholder {
+  color: var(--c-muted);
+  opacity: 1;
+}
+
+.n0-term-input:focus-visible {
+  outline: none;
+}
+
+.n0-term-form:focus-within {
+  box-shadow: inset 0 calc(var(--bw-strong) * -1) 0 var(--c-green);
+}
+
+@media (min-width: 48rem) {
+  .n0-term {
+    font-size: 0.8125rem;
+  }
+
+  .n0-term-input {
+    font-size: inherit;
+  }
+}
+
+/* Comandos sugeridos: para correrlos sin teclado */
+.n0-term-try {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-top: var(--border);
+}
+
+.n0-chip {
+  min-height: 2rem;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  background: transparent;
+  border: var(--border-control);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.n0-chip:hover:not(:disabled) {
+  color: var(--c-green);
+  border-color: var(--c-green);
+}
+
+.n0-chip:disabled {
+  cursor: default;
+}
+
+/* ---------- Paleta de comandos (<dialog> modal) ---------- */
+
+.n0-palette {
+  width: min(36rem, calc(100% - var(--gutter) * 2));
+  max-height: min(32rem, calc(100dvh - var(--sp-8)));
+  margin: var(--sp-7) auto auto;
+  padding: 0;
+  overflow: visible;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  background: transparent;
+  border: 0;
+}
+
+.n0-palette::backdrop {
+  background: color-mix(in srgb, var(--c-bg) 78%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.n0-palette[open] {
+  display: flex;
+}
+
+.n0-palette-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  --panel-accent: var(--c-green);
+}
+
+.n0-palette-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  border-bottom: var(--border);
+}
+
+.n0-palette-search > span {
+  color: var(--c-green);
+}
+
+.n0-palette-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0;
+  font-size: var(--fs-md);
+  background: transparent;
+  border: 0;
+  caret-color: var(--c-green);
+}
+
+.n0-palette-input::placeholder {
+  color: var(--c-muted);
+  opacity: 1;
+}
+
+.n0-palette-input:focus-visible {
+  outline: none;
+}
+
+.n0-palette-search:focus-within {
+  box-shadow: inset 0 calc(var(--bw-strong) * -1) 0 var(--c-green);
+}
+
+.n0-palette-close {
+  min-height: 2rem;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-muted);
+  background: transparent;
+  border: var(--border-control);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+
+.n0-palette-close:hover {
+  color: var(--c-text);
+  border-color: var(--c-amber);
+}
+
+.n0-palette-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--sp-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border-strong) transparent;
+}
+
+.n0-palette-option {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 2.75rem;
+  padding: 0 var(--sp-3);
+  border-left: var(--bw-strong) solid transparent;
+  cursor: pointer;
+}
+
+.n0-palette-option .n0-micro {
+  letter-spacing: 0.08em;
+}
+
+.n0-palette-hint {
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+
+.n0-palette-option[aria-selected="true"] {
+  background: color-mix(in srgb, var(--c-amber) 12%, transparent);
+  border-left-color: var(--c-amber);
+}
+
+.n0-palette-empty {
+  padding: var(--sp-5) var(--sp-4);
+  color: var(--c-muted);
+}
+
+.n0-palette-foot {
+  padding: var(--sp-2) var(--sp-4);
+  border-top: var(--border);
+  font-size: var(--fs-micro);
+  color: var(--c-muted);
+}
+
+@media (max-width: 30rem) {
+  .n0-palette {
+    margin-top: var(--sp-5);
+  }
+
+  .n0-palette-option {
+    grid-template-columns: 3.5rem minmax(0, auto) minmax(0, 1fr);
+  }
+}
+
+.n0-palette-list[hidden] {
+  display: none;
+}
+
+/* La ayuda de teclado no dice nada en una pantalla táctil */
+@media (hover: none) {
+  .n0-palette-foot {
+    display: none;
+  }
+}

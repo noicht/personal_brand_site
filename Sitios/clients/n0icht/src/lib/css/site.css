@@ -1,0 +1,653 @@
+/* Estilo global del sitio: fuentes, base, fondo, layout y piezas compartidas.
+   Los tokens están en tokens.css; la terminal y la paleta, en terminal.css.
+   Prefijos: `site-` layout genérico, `n0-` piezas propias, `is-` estados, `fx-` es del kit. */
+
+/* ---------- Fuentes (self-hosted, subset latino; licencias en static/fonts/) ---------- */
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-latin-wght.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Chakra Petch";
+  src: url("/fonts/chakra-petch-latin-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Chakra Petch";
+  src: url("/fonts/chakra-petch-latin-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Mientras carga Chakra Petch se ve Arial con sus métricas verticales, así el título no salta */
+@font-face {
+  font-family: "Chakra Petch Fallback";
+  src: local("Arial Bold"), local("Arial"), local("Liberation Sans Bold"), local("Liberation Sans");
+  ascent-override: 99.2%;
+  descent-override: 30.8%;
+  line-gap-override: 0%;
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header-h) + var(--sp-4));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  color: var(--c-text);
+  background: var(--c-bg);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  line-height: var(--lh-snug);
+  text-wrap: balance;
+}
+
+h1 {
+  font-weight: 700;
+}
+
+h2,
+h3 {
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+code,
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+::selection {
+  background: var(--c-amber);
+  color: var(--c-on-amber);
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Las secciones reciben el foco al navegar con la paleta (tabindex="-1"): no se les dibuja anillo */
+section:focus {
+  outline: none;
+}
+
+/* Solo para lectores de pantalla */
+.n0-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.n0-skip {
+  position: fixed;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  z-index: var(--z-skip);
+  padding: var(--sp-2) var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--c-on-amber);
+  background: var(--c-amber);
+  transform: translateY(-200%);
+}
+
+.n0-skip:focus {
+  transform: none;
+}
+
+/* ---------- Fondo: grilla de plano, ruido y scanlines, solo con CSS ----------
+   Queda detrás de todo. Más adelante también es lo que se ve si WebGL no está disponible. */
+
+.n0-app {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.n0-app > main {
+  flex: 1;
+}
+
+.n0-bg {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-bg);
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--bg-intensity);
+  background:
+    radial-gradient(ellipse 70% 55% at 85% 0%, color-mix(in srgb, var(--c-amber) 9%, transparent), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 0% 100%, color-mix(in srgb, var(--c-cyan) 5%, transparent), transparent 70%),
+    var(--c-bg);
+}
+
+/* Grilla: líneas finas cada --bg-grid y una más marcada cada cinco. Se desvanece hacia abajo */
+.n0-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  --line: color-mix(in srgb, var(--c-cyan) 7%, transparent);
+  --line-major: color-mix(in srgb, var(--c-cyan) 11%, transparent);
+  background-image:
+    linear-gradient(var(--line-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-major) 1px, transparent 1px),
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:
+    calc(var(--bg-grid) * 5) calc(var(--bg-grid) * 5),
+    calc(var(--bg-grid) * 5) calc(var(--bg-grid) * 5),
+    var(--bg-grid) var(--bg-grid),
+    var(--bg-grid) var(--bg-grid);
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 100% 90% at 50% 0%, #000 35%, transparent 100%);
+  mask-image: radial-gradient(ellipse 100% 90% at 50% 0%, #000 35%, transparent 100%);
+}
+
+/* Scanlines y ruido (un SVG en línea: no pide nada a la red) */
+.n0-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(to bottom, transparent 0 2px, color-mix(in srgb, #000 22%, transparent) 2px 3px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.09 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: auto, 160px 160px;
+}
+
+/* ---------- Layout ---------- */
+
+.site-wrap {
+  width: min(var(--wrap), calc(100% - var(--gutter) * 2));
+  margin-inline: auto;
+}
+
+.site-wrap.is-narrow {
+  --wrap: 46rem;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  background: color-mix(in srgb, var(--c-bg) 86%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: var(--border);
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  min-height: var(--header-h);
+}
+
+.site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 2.75rem;
+  font-family: var(--font-mono);
+  font-size: clamp(0.75rem, 3.4vw, var(--fs-sm));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.site-logo img {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.site-nav {
+  display: none;
+  gap: var(--sp-1);
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+
+.site-nav a {
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--c-muted);
+  border-bottom: var(--bw-strong) solid transparent;
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible {
+  color: var(--c-text);
+  border-bottom-color: var(--c-amber);
+}
+
+/* Botón de la paleta. En pantallas chicas es el menú: las secciones se eligen desde ahí */
+.n0-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 2.75rem;
+  padding: 0 var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  background: var(--c-panel);
+  border: var(--border-control);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease);
+}
+
+.n0-menu:hover {
+  border-color: var(--c-amber);
+}
+
+.n0-menu kbd {
+  display: none;
+  color: var(--c-muted);
+}
+
+@media (min-width: 62rem) {
+  .site-nav {
+    display: flex;
+  }
+
+  .n0-menu {
+    min-height: 2.25rem;
+  }
+
+  .n0-menu kbd {
+    display: inline;
+  }
+}
+
+.site-section {
+  padding-block: var(--sp-8);
+}
+
+.site-footer {
+  padding-block: var(--sp-6);
+  border-top: var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3) var(--sp-5);
+}
+
+.site-footer-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.site-footer-seal img {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ---------- Piezas compartidas ---------- */
+
+/* Micro-etiqueta en monoespaciada: SYS//01, STATUS: ONLINE */
+.n0-micro {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+/* Panel: superficie opaca con corchetes en las cuatro esquinas */
+.n0-panel {
+  position: relative;
+  padding: var(--sp-5);
+  background: var(--c-panel);
+  border: var(--border);
+  border-radius: var(--radius-1);
+}
+
+.n0-panel::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--bw) * -1);
+  pointer-events: none;
+  --c: var(--panel-accent, var(--c-amber));
+  --l: var(--bracket);
+  --t: var(--bw-strong);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) top left / var(--t) var(--l),
+    linear-gradient(var(--c), var(--c)) top right / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) top right / var(--t) var(--l),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--t) var(--l),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--t) var(--l);
+  background-repeat: no-repeat;
+}
+
+.n0-panel.is-flush {
+  padding: 0;
+}
+
+.n0-panel-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+/* Encabezado de sección: micro-etiqueta numerada, título y una franja de advertencia */
+.n0-sechead {
+  display: grid;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+}
+
+.n0-sechead .n0-micro {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--c-amber);
+}
+
+.n0-sechead .n0-micro::after {
+  content: "";
+  width: var(--sp-7);
+  height: var(--cell);
+  background: repeating-linear-gradient(-45deg, var(--c-amber) 0 4px, transparent 4px 8px);
+  opacity: 0.7;
+}
+
+.n0-sechead h2 {
+  font-size: var(--fs-xl);
+}
+
+.n0-sechead-lead {
+  max-width: 60ch;
+  color: var(--c-muted);
+}
+
+/* Botón (también como link) */
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 2.75rem;
+  padding: 0 var(--sp-5);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--c-on-amber);
+  background: var(--c-amber);
+  border: var(--bw) solid var(--c-amber);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+
+/* Al pasar, una celda verde se asoma por la esquina: la salida "activa" */
+.site-btn:hover,
+.site-btn:focus-visible {
+  box-shadow: var(--cell) var(--cell) 0 calc(var(--cell) * -0.5) var(--c-green);
+}
+
+.site-btn.is-ghost {
+  color: var(--c-text);
+  background: transparent;
+  border-color: var(--c-border-strong);
+}
+
+.site-btn.is-ghost:hover,
+.site-btn.is-ghost:focus-visible {
+  color: var(--c-amber);
+  border-color: var(--c-amber);
+}
+
+/* Etiqueta chica */
+.n0-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-1) var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text);
+  border: var(--bw) solid var(--c-border-strong);
+  border-radius: var(--radius-1);
+}
+
+.n0-tag.is-amber {
+  color: var(--c-amber);
+  border-color: color-mix(in srgb, var(--c-amber) 55%, transparent);
+}
+
+.n0-tag.is-green {
+  color: var(--c-green);
+  border-color: color-mix(in srgb, var(--c-green) 45%, transparent);
+}
+
+.n0-tag.is-cyan {
+  color: var(--c-cyan);
+  border-color: color-mix(in srgb, var(--c-cyan) 45%, transparent);
+}
+
+/* Punto de estado: una celda cuadrada. Verde es activo, como la celda verde del logo */
+.n0-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.n0-dot {
+  flex: none;
+  width: var(--cell);
+  height: var(--cell);
+  background: var(--c-muted);
+}
+
+.n0-dot.is-online {
+  background: var(--c-green);
+  box-shadow: 0 0 var(--cell) color-mix(in srgb, var(--c-green) 60%, transparent);
+}
+
+.n0-dot.is-pending {
+  background: var(--c-amber);
+}
+
+.n0-dot.is-pulse {
+  animation: n0-blink 1.6s steps(2, jump-none) infinite;
+}
+
+@keyframes n0-blink {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* ---------- Hero ---------- */
+
+.n0-hero {
+  padding-block: var(--sp-7) var(--sp-8);
+}
+
+.n0-hero-grid {
+  display: grid;
+  gap: var(--sp-7);
+  align-items: center;
+}
+
+.n0-hero-copy {
+  display: grid;
+  gap: var(--sp-4);
+  justify-items: start;
+}
+
+.n0-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+.n0-hero-meta .n0-micro:first-child {
+  color: var(--c-amber);
+}
+
+.n0-hero h1 {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: var(--lh-snug);
+}
+
+.n0-hero-role {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+}
+
+.n0-hero-tagline {
+  margin-block: var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+/* El punto final es la celda verde */
+.n0-hero-tagline span {
+  color: var(--c-green);
+}
+
+.n0-hero-lead {
+  max-width: 46ch;
+  font-size: var(--fs-lg);
+  color: var(--c-muted);
+}
+
+.n0-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+
+@media (min-width: 62rem) {
+  .n0-hero {
+    display: grid;
+    align-items: center;
+    min-height: calc(100vh - var(--header-h));
+    min-height: calc(100dvh - var(--header-h));
+    padding-block: var(--sp-7);
+  }
+
+  .n0-hero-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: var(--sp-8);
+  }
+}
+
+/* ---------- Secciones provisorias ---------- */
+
+.n0-pending p {
+  max-width: 60ch;
+  color: var(--c-muted);
+}
+
+.n0-pending-status {
+  margin-top: var(--sp-4);
+}
+
+/* ---------- Movimiento reducido ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
