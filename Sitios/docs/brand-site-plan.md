@@ -514,3 +514,72 @@ SEO, accessibility, performance, responsive, final docs.
 - Decide the optional Caddy cache header (section 6).
 
 ## Progress
+
+### M1. Foundation (2026-11-18)
+
+Built in `clients/n0icht/` (new site from `templates/site-static/`, D1 as recommended):
+
+- Tokens (`css/tokens.css`), global styles and primitives (`css/site.css`), terminal and palette
+  (`css/terminal.css`). CSS-only background (blueprint grid, inline-SVG noise, scanlines) in
+  `.n0-bg`, which is also where the M2 canvas goes.
+- Fonts: JetBrains Mono (variable 400–700) and Chakra Petch 600/700, Latin subset, 29 KB in total,
+  with their OFL texts. Two preloads (the tagline face and the mono face).
+- Primitives: `Panel`, `SectionHeader`, `Button`, `Tag`, `StatusDot`, `Container`.
+- Sticky nav with logo + identity text, section links, and the command palette (Cmd/Ctrl+K or the
+  header button; native modal `<dialog>`, combobox + listbox, lazy-loaded on first open). Below
+  62rem the links collapse into that button.
+- Favicon (provided SVG + 32px PNG + 180px touch icon), `theme-color`, meta/OG and Person JSON-LD
+  (`Seo.svelte`, `content/seo.js`).
+- Hero with static name, role, tagline and CTAs, plus the terminal: CSS-typed boot (skippable,
+  instant under reduced motion), `help`, `whoami`, `ls projects`, `cat stack`, `contact`,
+  `deploy --prod`, `clear`, unknown-command hint with "did you mean", Up/Down history, suggested
+  commands as buttons for touch.
+- Tests: 72 with `node --test` (parser, commands, session/history, boot timing, palette, content
+  validation, JSON-LD).
+
+Decisions and deviations from this plan:
+
+- **TypeScript in `src/lib/terminal/`** (`.ts`, tests `.test.ts`), because the M1 prompt asked for
+  the parser "as pure TypeScript"; section 1.3 and D2 had proposed JS + JSDoc. Node 22 strips the
+  types natively, so tests still need no runner. Consequences: `jsconfig.json` gained
+  `allowImportingTsExtensions`, and `@types/node` 22.20.5 was added (dev) so the test files
+  type-check. Content stays JS + JSDoc with `// @ts-check`. Components stay plain `<script>`.
+- Dev dependencies added, exact: `svelte-check` 4.7.8, `typescript` 6.0.3, `@types/node` 22.20.5.
+  `three` and `@types/three` are **not** installed yet (out of scope for M1), so the lockfile
+  changes once more in M2. The lock diff only adds entries.
+- Moved forward from later milestones because the M1 prompt lists them: command palette (was M3),
+  `Seo.svelte` and the touch icon (were M5). The OG image, sitemap and robots stay in M5.
+- The boot sequence is a CSS animation driven by timings from `terminal/boot.ts`, not JS typing:
+  the prerendered HTML already has every line, so nothing changes at hydration (R4).
+- R12 was handled differently: instead of dead anchors, `pendingSections` in `content/site.js`
+  renders one placeholder panel per unbuilt section (they also exercise the primitives). Each
+  milestone removes its section from that list.
+- Not built: `PixelLoader` (nothing loads yet). Added beyond the list in section 8: `Button`,
+  `Tag`, `SectionHeader`, `Container`, `terminal/palette.ts`, `content/index.js`, `content/seo.js`.
+- `deploy --prod` returns a `pulse` effect; in M1 the terminal panel flashes green. M2 routes it to
+  the scene.
+- `app.html` has a `<noscript>` rule so `.fx-reveal` content is visible without JavaScript.
+- Node 22.23.5 is now available locally (nvm) and was used for install, tests and builds (R8).
+
+Gate: `npm run check` (0 errors, 0 warnings), `npm test` (72 pass), `npm run build -w n0icht` and
+`-w biblioteca`, runes guard clean. No lint or format step exists in the repo (D2), so none ran.
+Initial JS for `/` is 50.8 KB gzip (budget 60), CSS 4.4 KB.
+
+Browser checks (headless Firefox 153 driven over WebDriver BiDi, at 1280, 768, 360 and 320px, with
+a touch profile and a reduced-motion profile): Tab order, terminal commands and history, palette
+open/filter/arrows/Enter/Esc, focus trap and focus return, no horizontal scroll, no request to
+another origin, no console errors. Not covered: activating a `<button>` with Enter/Space could not
+be simulated by that harness (the checks use `click()` on the focused button), no screen reader
+pass, no Chromium/Safari, no Lighthouse (R9).
+
+Open `TODO(content)`:
+
+- `content/contact.js`: real email; real GitHub and LinkedIn URLs (flagged `todo: true`, so they
+  are left out of the JSON-LD `sameAs`).
+- `content/projects.js`: the three projects are placeholders.
+- `content/site.js`: `site.url` (production origin; enables canonical and `og:url`).
+
+Known limitations:
+
+- Without JavaScript the terminal input is disabled and, below 62rem, there is no menu.
+- On small screens the terminal input is 16px (avoids iOS zoom) next to a 12px prompt.
