@@ -24,12 +24,20 @@ export const activeStage = writable(0);
 /** Estado de la escena 3D; lo escribe `Background3D.svelte`. */
 export const sceneStatus = writable(/** @type {SceneStatus} */ ("idle"));
 
-/** Contador de pulsos pedidos desde afuera del fondo (deploy --prod). */
-export const pulseRequests = writable(0);
+/**
+ * Pulsos pedidos desde afuera del fondo: el contador sube en cada pedido y `stage` es la
+ * parada del recorrido que lo recibe (deploy por defecto; el playground usa observe).
+ * @type {import("svelte/store").Writable<{ count: number, stage: number }>}
+ */
+export const pulseRequests = writable({ count: 0, stage: stageIndex("deploy") });
 
-/** Pide un pulso en el cluster de deploy (el comando `deploy --prod` de la terminal). */
-export function requestPulse() {
-  pulseRequests.update((n) => n + 1);
+/**
+ * Pide un pulso en una etapa del recorrido (por defecto deploy, la del `deploy --prod`
+ * de la terminal; el playground del sitio pide `observe`).
+ * @param {import("../three/stages.ts").StageId | number} [stage]
+ */
+export function requestPulse(stage = "deploy") {
+  pulseRequests.update((request) => ({ count: request.count + 1, stage: stageIndex(stage) }));
 }
 
 /** @typedef {{ stage: number, inView: boolean, passed: boolean }} Region */

@@ -90,13 +90,7 @@ export const hero = {
  * Cuando una sección se construye, sale de esta lista. El número sale de `sections`.
  * @type {import("./types.js").SectionStub[]}
  */
-export const pendingSections = [
-  {
-    id: "playground",
-    title: "System Design Playground",
-    summary: "A live simulator: add a cache, a load balancer, a queue or a replica and watch latency move.",
-  },
-];
+export const pendingSections = [];
 
 /** Textos de interfaz que no pertenecen a una sección. */
 export const ui = {

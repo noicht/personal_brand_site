@@ -12,8 +12,9 @@
    *   canvas; la opacidad la maneja `--scene-intensity` en site.css.
    * - Con `prefers-reduced-motion` la escena queda en un cuadro fijo (`still`).
    * - `?debug3d` muestra un HUD con fps, cluster y calidad; `?debug3d=low|high` fuerza el tier.
-   * - Los clics sobre el fondo mandan un pulso al nodo más cercano; `deploy --prod` en la
-   *   terminal llega por `pulseRequests`.
+   * - Los clics sobre el fondo mandan un pulso al nodo más cercano; los pulsos pedidos
+   *   desde afuera (`deploy --prod` en la terminal, las fallas del playground) llegan por
+   *   `pulseRequests`.
    */
   import { onMount } from "svelte";
   import { get } from "svelte/store";
@@ -331,15 +332,16 @@
     };
     canvas.addEventListener("webglcontextlost", onContextLost);
 
-    // `deploy --prod` en la terminal pide un pulso en el cluster de deploy; el cambio de
-    // etapa redibuja el cuadro fijo del modo still
+    // Un pulso pedido desde afuera (deploy --prod en la terminal, fallas del playground)
+    // enciende el cluster de su etapa; el cambio de etapa redibuja el cuadro fijo del
+    // modo still
     let pulseFirst = true;
-    const unsubscribePulses = pulseRequests.subscribe(() => {
+    const unsubscribePulses = pulseRequests.subscribe((request) => {
       if (pulseFirst) {
         pulseFirst = false;
         return;
       }
-      if (scene) scene.pulseStage(STAGES.indexOf("deploy"));
+      if (scene) scene.pulseStage(request.stage);
     });
     const unsubscribeStage = activeStage.subscribe(() => {
       if (scene) scene.invalidate();

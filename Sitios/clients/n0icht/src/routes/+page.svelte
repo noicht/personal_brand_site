@@ -4,6 +4,7 @@
   import Hero from "$lib/Components/Hero.svelte";
   import PendingSection from "$lib/Components/PendingSection.svelte";
   import Pipeline from "$lib/Components/Pipeline.svelte";
+  import PlaygroundSection from "$lib/Components/PlaygroundSection.svelte";
   import Projects from "$lib/Components/Projects.svelte";
   import StackPanel from "$lib/Components/StackPanel.svelte";
   import Writing from "$lib/Components/Writing.svelte";
@@ -13,6 +14,7 @@
   const built = {
     pipeline: Pipeline,
     projects: Projects,
+    playground: PlaygroundSection,
     stack: StackPanel,
     experience: Experience,
     writing: Writing,

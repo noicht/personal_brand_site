@@ -1,0 +1,648 @@
+/* Playground: el simulador de diseño de sistemas (sección `playground`). Todo `n0-pg-*`.
+   Lo importa `Playground.svelte`, así que viaja en el chunk lazy junto al componente.
+   El shell (`.n0-pg-shell`, el placeholder) está en sections.css porque va en el bundle
+   inicial. Tokens en tokens.css; piezas compartidas (`.n0-panel`, `.n0-sr`, `.n0-micro`)
+   en site.css. */
+
+.n0-pg-root {
+  min-width: 0;
+}
+
+.n0-pg-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.n0-pg-grid > * {
+  min-width: 0;
+}
+
+/* Debajo de 75rem el escenario se disuelve (`display: contents`): las métricas y el
+   diagrama quedan como ítems del flex de la grilla y las métricas se pegan solas. */
+.n0-pg-stage {
+  display: contents;
+}
+
+/* Las pistas de las grillas de controles son minmax(0, 1fr) y los ítems pueden bajar de su
+   min-content: sin eso, el ancho intrínseco de un range o de un fieldset estira la columna
+   más allá del panel (overflow horizontal en Firefox a 360px). Va arriba de los media
+   queries para que cada breakpoint pueda pisar las columnas de `.n0-pg-controls`. */
+.n0-pg-controls,
+.n0-pg-field,
+.n0-pg-slider,
+.n0-pg-sub,
+.n0-pg-toggle {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.n0-pg-controls > *,
+.n0-pg-field > *,
+.n0-pg-slider > *,
+.n0-pg-sub > *,
+.n0-pg-toggle > * {
+  min-width: 0;
+}
+
+/* ---------- Presets ---------- */
+
+.n0-pg-presets {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.n0-pg-preset {
+  min-height: 2.75rem;
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
+  background: var(--c-bg);
+  border: var(--border-control);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+
+.n0-pg-preset:hover {
+  color: var(--c-text);
+  border-color: var(--c-text);
+}
+
+.n0-pg-preset.is-active,
+.n0-pg-preset[aria-pressed="true"] {
+  color: var(--c-green);
+  border-color: var(--c-green);
+}
+
+.n0-pg-preset-hint {
+  margin: 0;
+  grid-column: 1 / -1;
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+
+/* ---------- Métricas ---------- */
+
+/* El grupo es la caja (sticky abajo de 75rem); la grilla vive en la `<dl>` interna */
+.n0-pg-metrics {
+  min-width: 0;
+}
+
+.n0-pg-metrics > dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+  margin: 0;
+}
+
+.n0-pg-metric {
+  min-width: 0;
+}
+
+.n0-pg-metric dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.n0-pg-metric dd {
+  margin: var(--sp-1) 0 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.n0-pg-unit {
+  margin-left: 0.3em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--c-muted);
+}
+
+/* En angosto se lee la etiqueta corta; la larga queda para lectores de pantalla */
+.n0-pg-dt-short {
+  display: none;
+}
+
+/* Abajo de 75rem las métricas quedan pegadas bajo el header a cualquier ancho */
+@media (max-width: 74.99rem) {
+  .n0-pg-metrics {
+    /* Recorrido pegajoso: los números quedan a la vista mientras se usan los controles */
+    position: sticky;
+    top: calc(var(--header-h) + var(--sp-2));
+    z-index: 3;
+    padding: var(--sp-3);
+    background: var(--c-panel);
+    border: var(--border);
+    border-radius: var(--radius-1);
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .n0-pg-dt-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .n0-pg-dt-short {
+    display: inline;
+  }
+
+  /* El panel afloja el padding para que el diagrama llegue a todo el ancho */
+  .n0-pg-root .n0-panel {
+    padding: var(--sp-3);
+  }
+
+  .n0-pg-presets {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 48rem) {
+  .n0-pg-presets {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Entre 48rem y 75rem: una sola fila de métricas en la caja pegajosa y los controles
+   en dos columnas (tráfico y fallas a la izquierda, arquitectura a la derecha) */
+@media (min-width: 48rem) and (max-width: 74.99rem) {
+  .n0-pg-metrics > dl {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .n0-pg-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* La columna de arquitectura abarca las dos filas; la fila de fallas queda
+       pegada a la de tráfico (auto + 1fr absorbe el alto sobrante abajo). */
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+
+  .n0-pg-traffic,
+  .n0-pg-failures {
+    grid-column: 1;
+  }
+
+  .n0-pg-arch {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (min-width: 75rem) {
+  .n0-pg-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-areas:
+      "presets presets"
+      "stage controls";
+    gap: var(--sp-5);
+  }
+
+  .n0-pg-presets {
+    grid-area: presets;
+  }
+
+  /* El escenario queda fijo: métricas arriba, diagrama abajo; los controles pasan de largo */
+  .n0-pg-stage {
+    grid-area: stage;
+    display: grid;
+    gap: var(--sp-4);
+    align-self: start;
+    position: sticky;
+    top: calc(var(--header-h) + var(--sp-4));
+  }
+
+  .n0-pg-stage > * {
+    min-width: 0;
+  }
+
+  /* Una sola fila, sin caja ni sticky: el ancho ya alcanza para las seis */
+  .n0-pg-metrics > dl {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .n0-pg-metric dd {
+    font-size: var(--fs-xl);
+  }
+
+  .n0-pg-controls {
+    grid-area: controls;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Diagrama ---------- */
+
+.n0-pg-diagram {
+  min-width: 0;
+}
+
+.n0-pg-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.n0-pg-svg.is-wide {
+  max-width: 49rem;
+}
+
+.n0-pg-svg.is-tall {
+  /* El lienzo tall mide 292 de ancho; 18.5rem = 296px lo deja entero en el teléfono */
+  max-width: 18.5rem;
+}
+
+.n0-pg-edge {
+  stroke: var(--c-border-strong);
+  stroke-width: 1.5;
+}
+
+.n0-pg-edge.is-async {
+  stroke-dasharray: 4 3;
+}
+
+.n0-pg-edge.is-down {
+  stroke: var(--c-amber);
+}
+
+.n0-pg-packet {
+  fill: var(--c-green);
+}
+
+.n0-pg-packet.is-fail {
+  fill: var(--c-amber);
+}
+
+.n0-pg-packet.is-async {
+  fill: var(--c-cyan);
+}
+
+.n0-pg-node-box {
+  fill: var(--c-panel);
+  stroke: var(--c-border-strong);
+  stroke-width: 1;
+}
+
+.n0-pg-node.is-hot .n0-pg-node-box {
+  stroke: var(--c-amber);
+}
+
+.n0-pg-node.is-cold .n0-pg-node-box {
+  stroke: var(--c-cyan);
+}
+
+.n0-pg-node.is-down .n0-pg-node-box {
+  stroke: var(--c-amber);
+  stroke-width: 2;
+  fill: color-mix(in srgb, var(--c-amber) 10%, var(--c-panel));
+}
+
+.n0-pg-node.is-off .n0-pg-node-box {
+  fill: color-mix(in srgb, var(--c-panel) 55%, transparent);
+  stroke: var(--c-muted);
+  stroke-dasharray: 4 3;
+}
+
+.n0-pg-node-status {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  fill: var(--c-muted);
+}
+
+.n0-pg-node.is-ok .n0-pg-node-status {
+  fill: var(--c-green);
+}
+
+.n0-pg-node.is-hot .n0-pg-node-status,
+.n0-pg-node.is-down .n0-pg-node-status {
+  fill: var(--c-amber);
+}
+
+.n0-pg-node.is-cold .n0-pg-node-status {
+  fill: var(--c-cyan);
+}
+
+.n0-pg-cell {
+  fill: var(--c-green);
+}
+
+.n0-pg-node.is-hot .n0-pg-cell {
+  fill: var(--c-amber);
+}
+
+.n0-pg-node.is-cold .n0-pg-cell {
+  fill: var(--c-cyan);
+}
+
+/* La celda hueca (instancia caída, nodo apagado o caído) va última: gana a los colores */
+.n0-pg-node .n0-pg-cell.is-hollow {
+  fill: none;
+  stroke: var(--c-muted);
+  stroke-width: 1;
+}
+
+.n0-pg-node-label {
+  fill: var(--c-text);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+}
+
+.n0-pg-node.is-off .n0-pg-node-label,
+.n0-pg-node.is-down .n0-pg-node-label {
+  fill: var(--c-muted);
+}
+
+.n0-pg-node-stat {
+  fill: var(--c-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+/* ---------- Controles ---------- */
+
+.n0-pg-controls {
+  display: grid;
+  gap: var(--sp-4);
+  align-content: start;
+}
+
+.n0-pg-field {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: var(--sp-4);
+  border: var(--border);
+  border-radius: var(--radius-1);
+  /* El fieldset trae min-inline-size: min-content por defecto y en Firefox eso
+     fuerza un piso más ancho que el panel a 360px */
+  min-inline-size: 0;
+}
+
+.n0-pg-field > legend {
+  padding: 0 var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-amber);
+}
+
+/* El grupo de fallas lleva la franja de advertencia del motivo */
+.n0-pg-failures {
+  position: relative;
+}
+
+.n0-pg-failures::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--bw) * -1);
+  left: calc(var(--bw) * -1);
+  right: calc(var(--bw) * -1);
+  height: var(--cell);
+  background: repeating-linear-gradient(-45deg, var(--c-amber) 0 4px, transparent 4px 8px);
+  opacity: 0.7;
+}
+
+.n0-pg-slider {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.n0-pg-slider > label {
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+
+.n0-pg-slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.n0-pg-range {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  accent-color: var(--c-amber);
+}
+
+.n0-pg-range:disabled {
+  opacity: 0.45;
+}
+
+.n0-pg-slider-row .n0-pg-slider-value {
+  flex: none;
+  min-width: 4.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: right;
+  color: var(--c-text);
+}
+
+.n0-pg-mix {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+
+/* Toggles de arquitectura */
+
+.n0-pg-toggle {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.n0-pg-toggle-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+/* El input real queda clipeado pero enfocable; la pastilla es decorativa */
+.n0-pg-toggle-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.n0-pg-switch {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  width: 3rem;
+  height: 1.375rem;
+  padding: 2px;
+  background: var(--c-bg);
+  border: var(--border-control);
+  border-radius: var(--radius-1);
+}
+
+/* La celda cuadrada del motivo como textura de la pista */
+.n0-pg-switch::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--c-border) 0 var(--cell),
+    transparent var(--cell) calc(var(--cell) * 2)
+  );
+  opacity: 0.6;
+}
+
+.n0-pg-knob {
+  position: relative;
+  width: 0.875rem;
+  height: 0.875rem;
+  background: var(--c-muted);
+  transition:
+    transform var(--dur-2) var(--ease),
+    background var(--dur-1) var(--ease);
+}
+
+.n0-pg-toggle-input:checked ~ .n0-pg-switch {
+  border-color: var(--c-green);
+}
+
+.n0-pg-toggle-input:checked ~ .n0-pg-switch .n0-pg-knob {
+  background: var(--c-green);
+  transform: translateX(1.7rem);
+}
+
+.n0-pg-toggle-input:focus-visible ~ .n0-pg-switch {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.n0-pg-toggle-name {
+  font-size: var(--fs-sm);
+}
+
+.n0-pg-tradeoff {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+
+/* Sub-controles de un toggle (hit ratio, instancias): sangrado con filete */
+.n0-pg-sub {
+  display: grid;
+  gap: var(--sp-3);
+  padding-left: var(--sp-4);
+  border-left: var(--bw) solid var(--c-border);
+}
+
+.n0-pg-instances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.n0-pg-instances > legend {
+  padding: 0;
+  margin-bottom: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.n0-pg-instances[disabled] {
+  opacity: 0.55;
+}
+
+.n0-pg-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 2.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.n0-pg-radio input {
+  accent-color: var(--c-green);
+}
+
+/* Fallas inyectables */
+
+.n0-pg-failure {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.n0-pg-failbtn {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: var(--sp-2) var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  color: var(--c-text);
+  background: var(--c-bg);
+  border: var(--border-control);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+
+.n0-pg-failbtn:hover:not(:disabled) {
+  border-color: var(--c-text);
+}
+
+.n0-pg-failbtn[aria-pressed="true"] {
+  color: var(--c-amber);
+  border-color: var(--c-amber);
+}
+
+.n0-pg-failbtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.n0-pg-failhint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}

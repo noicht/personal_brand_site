@@ -6,6 +6,7 @@
 import { contact, contactSection } from "./contact.js";
 import { experience } from "./experience.js";
 import { pipeline } from "./pipeline.js";
+import { playgroundSection } from "./playground.js";
 import { projects, projectsSection } from "./projects.js";
 import { features, hero, nav, pendingSections, sections, site } from "./site.js";
 import { stack, stackSection } from "./stack.js";
@@ -23,6 +24,7 @@ export const pageContent = {
   pendingSections,
   pipeline,
   projectsSection,
+  playgroundSection,
   stackSection,
   experience,
   writing,

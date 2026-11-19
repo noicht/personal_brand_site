@@ -101,6 +101,36 @@ describe("validateContent", () => {
     assert.ok(broken((copy) => (copy.contact.endpoint = "http://example.com")).length > 0);
     assert.ok(broken((_copy, pageCopy) => (pageCopy.contactSection.mailBody = "{name}")).length > 0);
   });
+
+  it("detecta un preset del playground sin copy", () => {
+    assert.ok(
+      broken((_copy, pageCopy) => Reflect.deleteProperty(pageCopy.playgroundSection.presets, "readHeavy")).length > 0,
+    );
+  });
+
+  it("detecta un trade-off sin «, but » o de más de 100 caracteres", () => {
+    assert.ok(
+      broken((_copy, pageCopy) => (pageCopy.playgroundSection.toggles.cache.tradeoff = "Faster reads.")).length > 0,
+    );
+    assert.ok(
+      broken(
+        (_copy, pageCopy) =>
+          (pageCopy.playgroundSection.toggles.cache.tradeoff = `${"x".repeat(101)}, but y`),
+      ).length > 0,
+    );
+  });
+
+  it("detecta un live.summary sin {p95}", () => {
+    assert.ok(
+      broken(
+        (_copy, pageCopy) =>
+          (pageCopy.playgroundSection.live.summary = pageCopy.playgroundSection.live.summary.replace(
+            "{p95}",
+            "{p95x}",
+          )),
+      ).length > 0,
+    );
+  });
 });
 
 describe("JSON-LD", () => {

@@ -6,10 +6,30 @@
  * Cada sección tiene su función (`validatePipeline`, `validateStack`, …); `validateContent`
  * las junta con las comprobaciones del sitio y de la terminal.
  */
+import { FAILURE_IDS, TOGGLE_IDS } from "../playground/model.ts";
+import { PRESET_IDS } from "../playground/presets.ts";
+import { NODE_IDS, NODE_STATUSES } from "../playground/topology.ts";
 import { STAGES } from "../three/stages.ts";
 
 /** Largo máximo de una línea de arranque: tiene que entrar en una fila de la terminal a 360px. */
 export const BOOT_LINE_MAX = 34;
+
+/** Los tres estados de salud del playground (`Health` de `playground/model.ts`). */
+const HEALTHS = ["ok", "degraded", "down"];
+
+/** Las seis métricas del playground, en el orden en que se muestran. */
+const METRIC_IDS = ["p50", "p95", "throughput", "errorRate", "dbLoad", "queueLag"];
+
+/** Placeholders que lleva el `stat` de cada nodo del playground (ver `content/playground.js`). */
+const NODE_STAT_KEYS = {
+  client: ["{rps}"],
+  lb: ["{alive}", "{instances}"],
+  api: ["{load}"],
+  cache: ["{hit}"],
+  queue: ["{backlog}"],
+  db: ["{load}"],
+  replica: ["{load}"],
+};
 
 /** @type {import("./types.js").DiagramNodeKind[]} */
 const NODE_KINDS = ["client", "service", "db", "queue", "cache", "external"];
@@ -61,6 +81,7 @@ export function validateSections(page, nav) {
   const built = new Set([
     page.pipeline.id,
     page.projectsSection.id,
+    page.playgroundSection.id,
     page.stackSection.id,
     page.experience.id,
     page.writing.id,
@@ -81,10 +102,11 @@ export function validateSections(page, nav) {
     check(ids.has(String(item.href).slice(2)), `${item.label}: no hay sección con id ${String(item.href).slice(2)}`);
   }
 
-  // Las seis metas: el id esperado, y título y bajada
+  // Las siete metas: el id esperado, y título y bajada
   const metas = {
     pipeline: page.pipeline,
     projects: page.projectsSection,
+    playground: page.playgroundSection,
     stack: page.stackSection,
     experience: page.experience,
     writing: page.writing,
@@ -332,6 +354,69 @@ export function validateContact(contact, section) {
 }
 
 /**
+ * El playground: los mapas tienen exactamente los ids del modelo (presets, toggles, fallas,
+ * nodos, estados, salud y métricas), ninguna cadena queda vacía, cada trade-off es una línea
+ * corta con la estructura «…, but …» y cada plantilla lleva sus placeholders.
+ * @param {import("./types.js").PlaygroundContent} section
+ * @returns {string[]}
+ */
+export function validatePlayground(section) {
+  const { problems, check } = checker();
+
+  /** Las claves de `value` son exactamente `ids` (sin faltar ni sobrar). */
+  const exactKeys = (/** @type {Record<string, unknown>} */ value, /** @type {readonly string[]} */ ids, /** @type {string} */ path) => {
+    const keys = Object.keys(value).sort();
+    const expected = [...ids].sort();
+    check(
+      keys.length === expected.length && keys.every((key, i) => key === expected[i]),
+      `${path}: las claves tienen que ser ${expected.join(", ")}`,
+    );
+  };
+
+  exactKeys(section.presets, PRESET_IDS, "playground.presets");
+  exactKeys(section.toggles, TOGGLE_IDS, "playground.toggles");
+  exactKeys(section.failures, FAILURE_IDS, "playground.failures");
+  exactKeys(section.nodes, NODE_IDS, "playground.nodes");
+  exactKeys(section.metrics, METRIC_IDS, "playground.metrics");
+  exactKeys(section.statuses, NODE_STATUSES, "playground.statuses");
+  exactKeys(section.health, HEALTHS, "playground.health");
+
+  // Ninguna hoja string puede quedar vacía
+  const scan = (/** @type {unknown} */ value, /** @type {string} */ path) => {
+    if (typeof value === "string") check(isText(value), `playground.${path} está vacío`);
+    else if (Array.isArray(value)) value.forEach((item, i) => scan(item, `${path}[${i}]`));
+    else if (value && typeof value === "object") {
+      for (const [key, item] of Object.entries(value)) scan(item, path ? `${path}.${key}` : key);
+    }
+  };
+  scan(section, "");
+
+  for (const id of TOGGLE_IDS) {
+    const tradeoff = section.toggles[id].tradeoff;
+    check(!tradeoff.includes("\n"), `playground.toggles.${id}.tradeoff: tiene que ser una sola línea`);
+    check(tradeoff.length <= 100, `playground.toggles.${id}.tradeoff: pasa de 100 caracteres`);
+    check(tradeoff.includes(", but "), `playground.toggles.${id}.tradeoff: falta «, but »`);
+  }
+
+  const has = (/** @type {string} */ template, /** @type {string} */ placeholder) =>
+    template.includes(placeholder);
+  check(has(section.traffic.valueText, "{rps}"), "playground.traffic.valueText: falta {rps}");
+  check(has(section.traffic.mix, "{reads}") && has(section.traffic.mix, "{writes}"), "playground.traffic.mix: faltan {reads} o {writes}");
+  check(has(section.hitRatio.valueText, "{hit}"), "playground.hitRatio.valueText: falta {hit}");
+  check(has(section.instances.option, "{count}"), "playground.instances.option: falta {count}");
+  for (const placeholder of ["{health}", "{p50}", "{p95}", "{throughput}", "{errors}", "{dbLoad}"]) {
+    check(has(section.live.summary, placeholder), `playground.live.summary: falta ${placeholder}`);
+  }
+  check(has(section.live.outage, "{health}"), "playground.live.outage: falta {health}");
+  for (const id of NODE_IDS) {
+    for (const placeholder of NODE_STAT_KEYS[id]) {
+      check(has(section.nodes[id].stat, placeholder), `playground.nodes.${id}.stat: falta ${placeholder}`);
+    }
+  }
+  return problems;
+}
+
+/**
  * @param {import("./types.js").TerminalContent} content
  * @param {import("./types.js").PageContent} page
  * @returns {string[]}
@@ -366,6 +451,7 @@ export function validateContent(content, page) {
 
   problems.push(...validateProjects(projects, page.projectsSection));
   problems.push(...validatePipeline(page.pipeline));
+  problems.push(...validatePlayground(page.playgroundSection));
   problems.push(...validateStack(stack, page.stackSection));
   problems.push(...validateExperience(page.experience));
   problems.push(...validateWriting(page.writing));

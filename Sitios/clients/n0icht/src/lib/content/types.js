@@ -276,6 +276,56 @@
  */
 
 /**
+ * Opción de un preset del playground.
+ * @typedef {object} PlaygroundPresetCopy
+ * @property {string} label
+ * @property {string} hint
+ */
+
+/**
+ * Texto de una métrica viva: nombre accesible, versión corta y unidad.
+ * @typedef {object} PlaygroundMetricCopy
+ * @property {string} label
+ * @property {string} short
+ * @property {string} unit
+ */
+
+/**
+ * Todo el copy del simulador del playground. Los ids de cada mapa son los del modelo
+ * (`src/lib/playground/`): presets, toggles, fallas, nodos, estados y métricas.
+ * @typedef {object} PlaygroundContent
+ * @property {string} id
+ * @property {string} title
+ * @property {string} lead
+ * @property {string} panelLabel Micro-etiqueta del panel (`SIM//playground`).
+ * @property {string} loading Texto del placeholder mientras carga el simulador.
+ * @property {string} noscript Aviso cuando no hay JavaScript.
+ * @property {string} loadError Aviso si el chunk lazy falla.
+ * @property {string} retry Texto del botón para reintentar la carga.
+ * @property {Record<import("../playground/model.ts").Health, string>} health
+ * @property {string} presetsLabel Nombre accesible del grupo de presets.
+ * @property {Record<import("../playground/presets.ts").PresetId, PlaygroundPresetCopy>} presets
+ * @property {string} customHint Aviso cuando la config no es ningún preset.
+ * @property {{ legend: string, label: string, valueText: string, mix: string }} traffic `valueText` lleva `{rps}`; `mix`, `{reads}` y `{writes}`.
+ * @property {string} togglesLegend
+ * @property {Record<import("../playground/model.ts").ToggleId, { label: string, tradeoff: string }>} toggles
+ * @property {{ label: string, valueText: string }} hitRatio `valueText` lleva `{hit}`.
+ * @property {{ legend: string, option: string }} instances `option` lleva `{count}`.
+ * @property {string} failuresLegend
+ * @property {Record<import("../playground/model.ts").FailureId, { label: string, hint: string }>} failures
+ * @property {string} metricsLabel Nombre accesible de la lista de métricas.
+ * @property {Record<"p50" | "p95" | "throughput" | "errorRate" | "dbLoad" | "queueLag", PlaygroundMetricCopy>} metrics
+ * @property {string} none Texto de un valor no disponible (`n/a`).
+ * @property {string} dbDownValue Valor de DB load cuando el primario está caído.
+ * @property {string} queueStalled Valor de lag cuando la cola no drena.
+ * @property {{ summary: string, outage: string, dbDown: string }} live Plantillas de la región viva (`summary` lleva `{health}`, `{p50}`, `{p95}`, `{throughput}`, `{errors}`, `{dbLoad}`; `outage`, `{health}`).
+ * @property {string} diagramLabel Nombre accesible del diagrama.
+ * @property {string} componentsLabel Título del listado de componentes para lectores de pantalla.
+ * @property {Record<import("../playground/topology.ts").NodeId, { label: string, stat: string }>} nodes `stat` es plantilla con los placeholders de cada nodo.
+ * @property {Record<import("../playground/topology.ts").NodeStatus, string>} statuses
+ */
+
+/**
  * @typedef {object} ContactLink
  * @property {string} label
  * @property {string} href
@@ -356,6 +406,7 @@
  * @property {SectionStub[]} pendingSections
  * @property {PipelineContent} pipeline
  * @property {ProjectsContent} projectsSection
+ * @property {PlaygroundContent} playgroundSection
  * @property {StackContent} stackSection
  * @property {ExperienceContent} experience
  * @property {WritingContent} writing

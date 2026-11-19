@@ -782,3 +782,162 @@ Open `TODO(content)` (all in `src/lib/content/`):
   Company. Only the companies, the client and the years are real.
 - `writing.js`: the three posts are placeholders; turn on `features.writing` in `site.js` when
   real ones exist.
+
+### M4. System Design Playground (2026-11-19)
+
+Done, in `clients/n0icht/`:
+
+- **Simulation** (`src/lib/playground/`, pure TypeScript, no DOM): `model.ts` (the config, the
+  closed-form `measure`, the fixed-step `step`/`run`, `healthOf`, `normalizeConfig`; the model is
+  documented in the file header), `presets.ts` (the four presets and `matchPreset`),
+  `topology.ts` (node boxes for a wide and a tall layout, node statuses, edges, and the traffic
+  routes with their rates), `packets.ts` (the animated packets, the only place with seeded
+  randomness) and `format.ts` (numbers to text). Each has its `.test.ts`.
+- **Section** (`PlaygroundSection.svelte`): a static shell with the heading and a loading panel.
+  The simulator (`Playground.svelte` and `css/playground.css`) is a separate chunk imported when
+  the section comes within 800px of the viewport. It is not in the prerendered HTML and not in
+  any `modulepreload`; a failed import shows a retry button and `<noscript>` explains itself.
+- **Diagram** (`PlaygroundDiagram.svelte`): an inline SVG panel. The seven components (client,
+  load balancer, API, cache, queue, DB, replica) are always drawn; the ones that are off are
+  dashed ghosts, so a toggle lights a component up instead of moving the layout. Each node has
+  square status cells (green is healthy; one cell per API instance), a status word (`OK`, `HOT`,
+  `COLD`, `DOWN`, `OFF`) and a live figure, so state is never colour-only. Packets travel the
+  routes in proportion to the model's flows: green served, amber failed, cyan asynchronous (queue
+  drain, replication). The layout is horizontal from 600px of available width and vertical below.
+- **Controls** (`PlaygroundControls.svelte`): native elements only. Traffic slider (50 to
+  2000 req/s), four switches (cache with its hit-ratio slider, load balancer with 2 or 3
+  instances, message queue, read replica), each with its one-line trade-off always visible, and
+  the failure group: "Kill the DB" and "Kill an API instance" are toggles (`aria-pressed`),
+  "Cache cold start" is momentary.
+- **Metrics** (`PlaygroundMetrics.svelte`): p50, p95, throughput, error rate, DB load and, with
+  the queue on, queue lag, as a description list of real text, plus a health tag (`NOMINAL`,
+  `DEGRADED`, `OUTAGE`). They stay in view while the controls are used: from 75rem the metrics
+  and the diagram are a sticky column next to the controls; below that the metrics stick under
+  the header.
+- **Presets**: Naive, Read-heavy, Spike traffic and Resilient, with a one-line hint each. A
+  preset resets the simulation state; changing anything afterwards shows "Custom setup".
+- **Accessibility and motion**: everything is reachable and operable with the keyboard (Tab
+  order follows the DOM, Space flips a switch, arrows move a slider). The SVG is `aria-hidden`
+  with a text alternative (the list of components with their state). One `role="status"`
+  summary is rewritten 900 ms after a user action or a health change, never per tick. With
+  `prefers-reduced-motion` there are no packets and no animation frame loop; the values keep
+  updating.
+- **Loop**: a fixed 250 ms tick that runs only while the section is on screen and the tab is
+  visible (`data-sim="running|paused"` on the root shows which). The packets have their own
+  `requestAnimationFrame` loop, which exists only while they are drawn.
+- **3D pulse**: injecting a failure pulses the `observe` cluster of the background (the camera
+  rests there below the pipeline) through the existing store: `requestPulse(stage)` now carries
+  the stage and defaults to `deploy`, so `deploy --prod` is unchanged.
+- **Content**: `content/playground.js` (all copy), `PlaygroundContent` in `types.js` and
+  `validatePlayground` in `validate.js` (exact key sets taken from the model's ids, no empty
+  string, each trade-off one line of at most 100 characters shaped "…, but …", every template
+  with its placeholders). `pendingSections` is now empty.
+- **Tests**: 275 with `node --test` (was 221). New: `playground/model`, `presets`,
+  `topology`, `packets`, `format`, and the playground cases in `content/validate`.
+
+The model and its assumptions (the same list heads `playground/model.ts`):
+
+1. **Steady state per instant.** `measure(config, state)` is a closed-form function. Only two
+   things evolve, in fixed steps of 0.25 s: how warm the cache is and how long the queue is.
+   There is no randomness in the model; same inputs, same metrics.
+2. **Queues.** Each API instance and each DB node is an M/M/1 queue: mean time
+   `service / (1 - utilisation)`, with utilisation capped at 0.95 (20 times the service time).
+   Traffic is split evenly across live instances.
+3. **Latency.** A response is a fixed cost (network 20 ms, load balancer hop 1 ms, cache lookup
+   1 ms, queue ack 3 ms) plus one exponential whose mean is the sum of its tiers' means (an
+   approximation: a sum of two exponentials is not exponential). p50 and p95 are quantiles of the
+   mixture of the classes of successful responses (cache hit, DB read, write), weighted by their
+   rate and found by bisection. Failed requests have no latency.
+4. **Overload fails instead of waiting.** The API tier (500 req/s per instance, 10 ms unloaded)
+   rejects what exceeds its capacity. A DB node (720 units/s; a read costs 1 and takes 8 ms, a
+   write costs 2 and takes 16 ms) over capacity completes `1 / load` of its operations, reads
+   and writes alike.
+5. **Replica.** Reads are split evenly between the primary and the replica; the replica applies
+   every write the primary applies. It halves the read load per node and does nothing for writes.
+6. **Cache.** The hit ratio is the share of reads that never reach the DB; a miss pays the
+   lookup and then the DB. Cached data is never wrong in the model: staleness is the trade-off
+   in the copy, not a metric. Turning the cache on starts warm; "cold start" empties it and it
+   warms linearly in 8 s whatever the traffic.
+7. **Queue.** A write succeeds once enqueued. One worker drains towards the primary without
+   taking it past 80% (reads have priority). The backlog is capped at 20,000 messages; when full,
+   only what drains can come in and the rest is rejected. Turning the queue off drops the backlog.
+8. **Kill the DB** kills the primary. Reads go on through cache hits and the replica, which is
+   never promoted; writes fail, or pile up in the queue.
+9. **Kill an API instance** removes one instance and the load balancer stops routing to it at
+   once. Without a load balancer it was the only one.
+10. **Throughput** counts successful responses per second (an enqueued write counts when acked)
+    and the error rate is `1 - throughput / traffic`. Health is `OUTAGE` at 99.9% errors or more,
+    `DEGRADED` with any errors, a tier over 90% load, a full or stalled queue or more than 10 s
+    of queue lag, and `NOMINAL` otherwise.
+
+What the presets show with those numbers (from the model, at the moment the preset is applied):
+
+| Preset | Setup | p50 / p95 | DB load | Under failure |
+| ------ | ----- | --------- | ------- | ------------- |
+| Naive | 200 req/s, 80% reads, nothing on | 41 / 114 ms | 33% | Either kill is a full outage. The API saturates at 500 req/s and the DB at 600. |
+| Read-heavy | 1000 req/s, 95% reads, cache 90%, 3 instances, replica | 44 / 118 ms | 20% | Cold start: DB 80%, p95 238 ms, back to normal in 8 s. Kill the DB: 5% errors (the writes). |
+| Spike traffic | 1200 req/s, 60% reads, cache 80%, 3 instances, queue | 60 / 190 ms | 80% | 0% errors while the backlog grows 264 messages/s; the queue fills at 76 s and then 22% fail. Without the queue 18% fail at once. |
+| Resilient | 800 req/s, 80% reads, everything on | 39 / 96 ms | 53% | Kill the DB: 0% errors, reads from cache and replica, writes wait in the queue. Kill an API instance: API load 80%, p95 181 ms, 0% errors. |
+
+Decisions and deviations from this plan:
+
+- **A closed-form model, not a discrete-event simulation.** It is what makes every number
+  testable and repeatable, and it responds to a control in the same frame.
+- File layout differs from section 8: `model.ts`, `presets.ts`, `topology.ts`, `packets.ts` and
+  `format.ts` instead of `model.js`, `simulate.js` and `prng.js` (the PRNG is `mulberry32`, which
+  `three/graph.ts` already had). A static shell, `PlaygroundSection.svelte`, was added so that
+  `Playground.svelte` can be the lazy root.
+- **The read/write mix comes from the preset.** It is shown next to the traffic slider and has no
+  control of its own: the milestone lists traffic and failures as the only controls.
+- **The Spike preset is not sustainable on purpose.** The queue buys about 76 s, not capacity,
+  which is the trade-off its line states.
+- **Failures are amber, hazard stripes and words.** The palette has no red and none was added.
+- No `playground` terminal command (optional in section 8, not in the milestone prompt). The
+  palette already goes to the section.
+- No new dependencies; the lockfile did not change.
+
+Gate: `npm run check` (0 errors, 0 warnings), `npm test` (275 pass), `npm run build -w n0icht`,
+runes guard clean, bundle guard: the playground chunk and its CSS are not referenced by
+`build/index.html` and its code is in none of the initially loaded files. No lint or format step
+exists in the repo (D2), so none ran.
+
+Measurements (Chrome for Testing 158 headless, production build under `vite preview`):
+
+- Initial JS for `/` is 71.2 KB gzip (M3: 69.2 KB). The increase is the section shell and the
+  playground copy. The simulator itself is a lazy chunk of 8.7 KB gzip of JS and 2.0 KB of CSS.
+- Lighthouse mobile, median of 3, software GL (CSS fallback path): Performance 90, FCP 868 ms,
+  LCP 868 ms, TBT 400 ms, CLS 0 (M3: 92, 768 ms, 768 ms, 344 ms, 0). The three runs scored 86, 94
+  and 90, so the difference with M3 is inside the spread of this machine; the simulator is not
+  requested while the page is at the top. Measured before the last two CSS-only fixes.
+- Browser checks passed at 360, 768 and 1280 (51 scripted checks): no horizontal scroll and no
+  element of the simulator past the viewport, with each preset and with everything on plus both
+  kills; the chunk is requested only when the section approaches; Tab reaches the presets, the
+  traffic slider, the switches, the hit-ratio slider, the instance radios and the failure buttons
+  in DOM order, Space flips a switch, arrows move the slider, Enter applies a preset; Naive plus
+  "Kill the DB" shows 100% errors, `n/a` latencies and `OUTAGE`, and pressing it again restores;
+  Resilient plus "Kill the DB" stays at 0% errors with the queue lag `STALLED`; a cold start in
+  Read-heavy raises the DB load and it comes back within 8 s; the status text changes about 1 s
+  after an action and stays the same for 3 s while the Spike backlog grows; with reduced motion
+  there is no packet element and no animation frame loop and the values still change;
+  `data-sim` is `paused` off screen and in a hidden tab; the metrics (and from 75rem the
+  diagram) stay inside the viewport while the failure buttons are used; no node text overflows
+  its box with the longest values; no console errors and no request to another origin.
+- Firefox 153: no horizontal overflow at 360 and 768 and the sticky layout works at 360 and 1280.
+  This pass found a real overflow at 360 (a `<fieldset>` keeps `min-inline-size: min-content`
+  and the range inputs widened it by 16px); fixed in `playground.css`.
+
+Known limitations:
+
+- The constants are illustrative: chosen so each trade-off is visible, not measured on a real
+  system. The model has no retries, timeouts or back-pressure between tiers, no failover, no
+  detection time in the load balancer, and constant traffic (a "spike" is a level, not a burst).
+  Staleness and replication lag are named in the copy but not simulated.
+- The diagram has no arrowheads: direction is read from the layout (left to right, top to bottom
+  on phones) and from the packets, so with reduced motion only from the layout.
+- With reduced motion the failure pulse does nothing, because the 3D scene is a still frame.
+- On phones the sticky metrics take about 130px under the header while the section is on screen.
+- The initial JS grew again (above) and stays over the 60 KB budget of R3; still for M5.
+- No screen reader pass, no Safari, no real phone. Firefox was checked for overflow and the
+  sticky layout only. Lighthouse ran on the software-GL profile only.
+
+Open `TODO(content)`: unchanged from M3. The playground adds none.

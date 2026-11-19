@@ -1,7 +1,8 @@
 /* Secciones de contenido del sitio: pipeline, proyectos (casos y diagramas), stack (medidores),
-   experiencia, notas, contacto y los paneles provisorios de las pendientes.
-   Los tokens están en tokens.css; piezas compartidas (`.n0-panel`, `.n0-micro`, `.n0-tag`,
-   `.n0-status`, `.site-btn`) en site.css. */
+   experiencia, notas, contacto, el shell del playground y los paneles provisorios de las
+   pendientes. Los tokens están en tokens.css; piezas compartidas (`.n0-panel`, `.n0-micro`,
+   `.n0-tag`, `.n0-status`, `.site-btn`) en site.css; el simulador del playground en
+   playground.css (chunk lazy). */
 
 /* ---------- Panel provisorio (secciones pendientes) ---------- */
 
@@ -12,6 +13,20 @@
 
 .n0-pending-status {
   margin-top: var(--sp-4);
+}
+
+/* ---------- Playground: solo el shell (el simulador es lazy, ver playground.css) ---------- */
+
+/* Reserva la altura del panel mientras carga el chunk; el placeholder queda centrado */
+.n0-pg-shell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 24rem;
+}
+
+.n0-pg-shell > * {
+  width: 100%;
 }
 
 /* Textos largos (resúmenes, URLs) cortan dentro de los paneles, nunca empujan la página */
