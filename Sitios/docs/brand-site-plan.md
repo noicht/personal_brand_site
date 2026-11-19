@@ -669,3 +669,116 @@ Known limitations:
   (contrast behind text, cluster colours) needs an eye on a real screen.
 
 Open `TODO(content)`: unchanged from M1.
+
+### M3. Content sections (2026-11-19)
+
+Done, in `clients/n0icht/`:
+
+- **Content** (`src/lib/content/`): `pipeline.js`, `projects.js` (full case-study shape plus the
+  section copy), `stack.js`, `experience.js`, `writing.js`, `contact.js` (form copy, limits,
+  messages, `endpoint`), `sections.js` (`enabled`, `numbered`). `site.js` gains `features`
+  (`writing: false`), the section order and `ui.placeholderTag`; `nav` and `sections` are derived
+  from the flags, and the `SYS//NN` number comes from the order, so turning a section on or off
+  never leaves a gap. `types.js` has a typedef for every shape and `validate.js` one exported
+  validator per area (`validateSections`, `validatePipeline`, `validateProjects`, `validateStack`,
+  `validateExperience`, `validateWriting`, `validateContact`), all run by `validateContent`.
+- **0 -> Production pipeline** (`Pipeline.svelte`): six stages with copy, output and tools. Each
+  stage `<li>` carries `use:stageAnchor` with its `StageId`, so the existing scroll store drives
+  the camera and the highlighted cluster; the same `activeStage` marks the stage panel (green
+  brackets plus an `ACTIVE` tag, so the state is not colour-only) and the sticky rail (from 62rem,
+  `aria-current="step"`). The validator requires the stage ids to equal `STAGES` in order.
+- **Projects** (`Projects`, `ProjectCase`, `ArchDiagram`, `viz/diagram.ts`): cards are native
+  `<details>` sharing a `name` (opening one closes the other); the open card spans the grid and
+  shows problem, architecture diagram, decisions with their trade-off, stack, result and links.
+  The diagram is inline SVG laid out from grid cells in the content (orthogonal edges, arrow
+  markers, labels placed off the lines), inside a keyboard-scrollable region with a text
+  alternative (caption plus the list of connections). `/#project-<slug>` opens that case. Adding a
+  project is one entry in `content/projects.js`. Two placeholder projects are seeded.
+- **Stack** (`StackPanel`, `Gauge`, `viz/gauge.ts`): four panels (backend, cloud / infra, frontend,
+  practices). Each has a half-dial gauge for years in production (readout as real text) and one
+  status row per tool: `ACTIVE`, `STANDBY` or `BENCH`, as text next to the status cell, with a
+  legend. No percentages and no rating bars; the validator rejects a `%` anywhere in the stack.
+- **Experience** (`Experience.svelte`): timeline with Baufest for BBVA (2025-2026), Jano's Eventos
+  (2024) and Nodus Company (2021-2024). Only companies, client and years are real.
+- **Contact** (`Contact.svelte`, `contact/form.ts`): terminal-style form (`name>`, `email>`,
+  `message>`) with real labels, per-field errors (`aria-invalid`, `aria-describedby`, focus on the
+  first invalid field), a `role="status"` line and an off-screen honeypot (a filled trap shows
+  "sent" and sends nothing). D3 as planned: without an endpoint, submit opens a prefilled
+  `mailto:`; with `PUBLIC_CONTACT_ENDPOINT` or `contact.endpoint` it POSTs JSON with a 10 s
+  timeout and, on failure, offers the prefilled `mailto:` link. The mail link and the profiles are
+  always in the prerendered HTML.
+- **Writing/notes** (`Writing.svelte`): list of posts behind `features.writing`, off by default.
+  Off means no section, no nav item and no palette entry; the content is validated either way.
+- **Playground**: still a placeholder panel (`PendingSection.svelte`) with its `playground` id.
+- **Wiring**: `+page.svelte` renders `sections` in the brief's order through an id-to-component
+  map; `Section.svelte` gives every section its `id`, `tabindex="-1"` and `aria-labelledby`. New
+  `css/sections.css`. The temporary stage anchors on the placeholders are gone.
+- **Tests**: 221 with `node --test` (was 158). New: `viz/diagram`, `viz/gauge`, `contact/form`,
+  `content/sections`, extended `content/validate`, and `Components/copy.test.js`, which fails if a
+  `.svelte` file has hand-written visible text or `aria-label`/`placeholder`/`title`/`alt` copy.
+
+Decisions and deviations from this plan:
+
+- **Placeholders are visible.** Anything flagged `todo: true` (projects, experience entries,
+  posts, the mail and the profiles) shows an amber `PLACEHOLDER` tag, and a project or post link
+  flagged `todo` is rendered as text with `SOON`, never as an `<a>` to a URL that does not exist.
+  Invented copy cannot reach production unnoticed; removing `todo` removes the tag.
+- **Case studies open in place** (`<details>`), not in a modal or a route: they work without
+  JavaScript, the content is in the prerendered HTML and the keyboard behaviour is native.
+- **After the pipeline the camera stays on "observe"** for the rest of the page. The six stages
+  belong to the pipeline section; the later sections are not mapped to stages.
+- **Stack gauges show years in production per group**, a measurement rather than a self-rating.
+- `cat stack` in `terminal/commands.ts` reads `item.name` (stack items are objects now). The
+  seeded projects went from three to two, so `ls projects` lists two.
+- New pure modules are TypeScript (`viz/`, `contact/`), like `terminal/` and `three/`.
+- `.site-btn:disabled` was added to `site.css` (muted, no `opacity`, so the label keeps AA).
+- No new dependencies; the lockfile did not change.
+
+Gate: `npm run check` (0 errors, 0 warnings), `npm test` (221 pass, 52 suites),
+`npm run build -w n0icht`, runes guard clean, no runtime import of `three` outside the lazy
+chunk. No lint or format step exists in the repo (D2), so none ran.
+
+Measurements (Chrome for Testing 158 headless, production build under `vite preview`):
+
+- **Initial JS for `/` is 69.2 KB gzip (67.5 KiB), over the 60 KB budget of R3** (M2: 54.7 KB).
+  The increase is the page chunk: eleven new components and the content, which is in the HTML and
+  again in the JS that hydrates it. CSS is 6.3 KB gzip. Not restructured; see known limitations.
+- Lighthouse mobile, median of 3, software GL (CSS fallback path): Performance 92, FCP 768 ms,
+  LCP 768 ms, TBT 344 ms, CLS 0. Lighthouse warned again about this machine's CPU. The hardware-GL
+  profile (77 in M2) was not measured again.
+- Browser checks passed at 360, 768 and 1280: no horizontal page scroll; Tab reaches the rail
+  links, each case summary, the diagram region, the three fields, send and the contact links, each
+  with a visible focus ring; Enter opens a case and opening the second closes the first;
+  `/#project-fleet-api` loads with that case open; the active stage follows the scroll in order
+  and the stage panels keep their height when the active one changes; empty submit shows three
+  errors and focuses `name`; a bad email shows only that error; a filled honeypot neither fetches
+  nor navigates; mailto mode builds the expected URL; endpoint mode against a local mock shows the
+  sent state on 200 and the failed state with the fallback link on 500; with the flag on, the
+  notes section, its nav item and its palette entry appear. No console errors and no request to
+  another origin in the default build. Firefox 153 (BiDi) rendered the page at 360 and 1280.
+
+Known limitations:
+
+- The 60 KB initial-JS budget is exceeded (above). Options for M5: accept a new budget (about
+  75 KB), or load the sections below the fold with `import()` at the cost of hydrating them late.
+- The colours in use are the token pairs measured in R6; no automated contrast audit ran. No
+  screen reader pass, no Safari, no real phone.
+- Without JavaScript the form's submit button stays disabled; the mail link below it works.
+- The diagram scrolls sideways inside its own region below about 46rem of width.
+- On narrow screens the stage rail is hidden; the stages are still in document order.
+- The `→` in "0 → Production" is not in the Chakra Petch subset and falls back to the system
+  font (it was already there in M1).
+
+Open `TODO(content)` (all in `src/lib/content/`):
+
+- `site.js`: `site.url`, the production origin (enables canonical and `og:url`).
+- `contact.js`: the real mail (then remove `emailTodo`); the real GitHub and LinkedIn URLs (then
+  remove `todo`, which also adds them to the JSON-LD `sameAs`). Optional: `contact.endpoint`.
+- `projects.js`: both projects are placeholders (summary, period, role, problem, diagram,
+  decisions, stack, result, repository and demo links).
+- `pipeline.js`: confirm the tools listed for each stage.
+- `stack.js`: confirm the status of each tool and the years in production of each group.
+- `experience.js`: role, summary, outcomes and stack for Baufest (BBVA), Jano's Eventos and Nodus
+  Company. Only the companies, the client and the years are real.
+- `writing.js`: the three posts are placeholders; turn on `features.writing` in `site.js` when
+  real ones exist.

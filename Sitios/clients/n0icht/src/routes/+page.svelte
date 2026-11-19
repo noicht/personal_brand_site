@@ -1,51 +1,38 @@
 <script>
-  import { reveal } from "@sitios/kit/motion/reveal.js";
-  import Container from "$lib/Components/Container.svelte";
+  import Contact from "$lib/Components/Contact.svelte";
+  import Experience from "$lib/Components/Experience.svelte";
   import Hero from "$lib/Components/Hero.svelte";
-  import Panel from "$lib/Components/Panel.svelte";
-  import SectionHeader from "$lib/Components/SectionHeader.svelte";
-  import StatusDot from "$lib/Components/StatusDot.svelte";
-  import Tag from "$lib/Components/Tag.svelte";
-  import { pendingSections, ui } from "$lib/content/site.js";
-  import { stageAnchor } from "$lib/stores/scene.js";
+  import PendingSection from "$lib/Components/PendingSection.svelte";
+  import Pipeline from "$lib/Components/Pipeline.svelte";
+  import Projects from "$lib/Components/Projects.svelte";
+  import StackPanel from "$lib/Components/StackPanel.svelte";
+  import Writing from "$lib/Components/Writing.svelte";
+  import { pendingSections, sections } from "$lib/content/site.js";
+
+  /** Secciones construidas por id; el resto cae en el panel provisorio. */
+  const built = {
+    pipeline: Pipeline,
+    projects: Projects,
+    stack: StackPanel,
+    experience: Experience,
+    writing: Writing,
+    contact: Contact,
+  };
+
+  /** @param {string} id */
+  const stubFor = (id) => pendingSections.find((stub) => stub.id === id);
 </script>
 
-<!-- Una <section id> por bloque; el menú y la paleta apuntan a esos ids. tabindex="-1" deja que la
-     paleta les pase el foco al navegar. -->
+<!-- Una <section id> por bloque, en el orden de `sections`; el menú y la paleta apuntan a esos
+     ids. Las secciones detrás de una flag apagada no llegan a esta lista. -->
 <main id="main">
   <Hero />
 
-  <!-- Secciones que todavía no están construidas: reservan el ancla con un panel provisorio.
-       `stageAnchor` es provisorio: hasta M3 cada sección pendiente hace las veces de una etapa
-       del pipeline para poder probar la sincronía del fondo 3D con el scroll; las anclas reales
-       van a ser los pasos del pipeline. -->
-  {#each pendingSections as section, index}
-    <section
-      id={section.id}
-      class="site-section n0-pending"
-      tabindex="-1"
-      aria-labelledby="{section.id}-title"
-      use:stageAnchor={index}
-    >
-      <Container>
-        <!-- El reveal va adentro y no en la <section>: si la sección misma se desplaza, el ancla
-             queda corrida al navegar -->
-        <div class="fx-reveal" use:reveal>
-          <SectionHeader
-            label={ui.sectionLabel}
-            index={section.index}
-            title={section.title}
-            headingId="{section.id}-title"
-          />
-          <Panel label="{ui.pendingLabel}//{section.id}">
-            <Tag slot="status" tone="amber">{ui.pendingTag}</Tag>
-            <p>{section.summary}</p>
-            <div class="n0-pending-status">
-              <StatusDot state="pending" label={ui.pendingStatus} />
-            </div>
-          </Panel>
-        </div>
-      </Container>
-    </section>
+  {#each sections as section (section.id)}
+    {#if built[section.id]}
+      <svelte:component this={built[section.id]} index={section.index} />
+    {:else}
+      <PendingSection stub={stubFor(section.id)} index={section.index} />
+    {/if}
   {/each}
 </main>

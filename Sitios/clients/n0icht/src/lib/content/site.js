@@ -3,6 +3,7 @@
  * Contenido general del sitio: identidad, menú, hero y textos de interfaz.
  * Los componentes leen todo de `src/lib/content/`: para cambiar un texto se toca acá, no en los `.svelte`.
  */
+import { enabled, numbered } from "./sections.js";
 
 /** @type {import("./types.js").Site} */
 export const site = {
@@ -34,15 +35,44 @@ export const site = {
   ],
 };
 
-/** Menú. Cada `href` apunta a una `<section id>` de la página. @type {import("./types.js").NavItem[]} */
-export const nav = [
+/**
+ * Secciones optativas. `writing` queda apagada hasta que haya posts reales; con el flag en
+ * `false` no hay sección, ítem del menú ni entrada en la paleta.
+ * @type {import("./types.js").Features}
+ */
+export const features = { writing: false };
+
+/** @type {import("./types.js").NavItem[]} */
+const navItems = [
   { label: "Pipeline", href: "/#pipeline" },
   { label: "Projects", href: "/#projects" },
   { label: "Playground", href: "/#playground" },
   { label: "Stack", href: "/#stack" },
   { label: "Experience", href: "/#experience" },
+  { label: "Notes", href: "/#writing", feature: "writing" },
   { label: "Contact", href: "/#contact" },
 ];
+
+/** Menú. Cada `href` apunta a una `<section id>` de la página. @type {import("./types.js").NavItem[]} */
+export const nav = enabled(navItems, features);
+
+/**
+ * Las secciones de la página, en orden. Las que tienen `feature` solo aparecen con su flag
+ * prendida; el número (`index`) se asigna después de filtrar.
+ * @type {{ id: string, feature?: string }[]}
+ */
+const sectionOrder = [
+  { id: "pipeline" },
+  { id: "projects" },
+  { id: "playground" },
+  { id: "stack" },
+  { id: "experience" },
+  { id: "writing", feature: "writing" },
+  { id: "contact" },
+];
+
+/** @type {import("./types.js").SectionRef[]} */
+export const sections = numbered(enabled(sectionOrder, features));
 
 /** @type {import("./types.js").Hero} */
 export const hero = {
@@ -57,45 +87,14 @@ export const hero = {
 
 /**
  * Secciones que todavía no están construidas. Reservan el ancla del menú con un panel provisorio.
- * Cuando una sección se construye, sale de esta lista.
+ * Cuando una sección se construye, sale de esta lista. El número sale de `sections`.
  * @type {import("./types.js").SectionStub[]}
  */
 export const pendingSections = [
   {
-    id: "pipeline",
-    index: "01",
-    title: "0 → Production",
-    summary: "Idea, design, build, test, deploy, observe: how a product gets from nothing to running.",
-  },
-  {
-    id: "projects",
-    index: "02",
-    title: "Projects",
-    summary: "Case studies: the problem, the architecture, the trade-offs and the result.",
-  },
-  {
     id: "playground",
-    index: "03",
     title: "System Design Playground",
     summary: "A live simulator: add a cache, a load balancer, a queue or a replica and watch latency move.",
-  },
-  {
-    id: "stack",
-    index: "04",
-    title: "Stack",
-    summary: "The tools I run in production, as an instrument panel.",
-  },
-  {
-    id: "experience",
-    index: "05",
-    title: "Experience",
-    summary: "A timeline of outcomes, not job titles.",
-  },
-  {
-    id: "contact",
-    index: "06",
-    title: "Contact",
-    summary: "A direct line. Until this panel is wired, run 'contact' in the terminal.",
   },
 ];
 
@@ -107,6 +106,7 @@ export const ui = {
   sectionLabel: "SYS",
   pendingLabel: "MODULE",
   pendingTag: "IN BUILD",
+  placeholderTag: "PLACEHOLDER",
   pendingStatus: "STATUS: SCHEDULED",
   footerStatus: "ALL SYSTEMS NOMINAL",
 };

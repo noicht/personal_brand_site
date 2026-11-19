@@ -65,7 +65,7 @@ describe("execute", () => {
   it("cat stack imprime un grupo por línea", () => {
     const { lines } = execute("cat stack", content);
     assert.equal(lines.length, content.stack.length);
-    assert.equal(lines[0].text, content.stack[0].items.join(" · "));
+    assert.equal(lines[0].text, content.stack[0].items.map((item) => item.name).join(" · "));
     assert.equal(lines[0].tag?.trim(), content.stack[0].label);
   });
 

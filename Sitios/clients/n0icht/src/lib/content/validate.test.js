@@ -1,18 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { contact } from "./contact.js";
-import { terminalContent as content } from "./index.js";
+import { pageContent as page, terminalContent as content } from "./index.js";
 import { jsonLdScript, personJsonLd } from "./seo.js";
-import { hero, nav, pendingSections, site } from "./site.js";
+import { nav, site } from "./site.js";
 import { BOOT_LINE_MAX, validateContent } from "./validate.js";
-
-const page = { hero, pendingSections };
 
 /** Copia del contenido con un cambio, para comprobar que el validador lo detecta. */
 const broken = (change) => {
   const copy = structuredClone(content);
-  change(copy);
-  return validateContent(copy, page);
+  const pageCopy = structuredClone(page);
+  change(copy, pageCopy);
+  return validateContent(copy, pageCopy);
 };
 
 describe("validateContent", () => {
@@ -42,9 +41,8 @@ describe("validateContent", () => {
     assert.equal(broken((copy) => copy.terminal.suggestions.push("rm -rf")).length, 1);
   });
 
-  it("detecta proyectos repetidos, un stack vacío y un mail inválido", () => {
+  it("detecta proyectos repetidos y un mail inválido", () => {
     assert.ok(broken((copy) => copy.projects.push(copy.projects[0])).length > 0);
-    assert.ok(broken((copy) => (copy.stack[0].items = [])).length > 0);
     assert.ok(broken((copy) => (copy.contact.email = "nope")).length > 0);
   });
 
@@ -56,6 +54,52 @@ describe("validateContent", () => {
 
   it("el menú del sitio apunta a secciones distintas", () => {
     assert.equal(new Set(nav.map((item) => item.href)).size, nav.length);
+  });
+
+  it("detecta un id de sección que no existe ni está pendiente", () => {
+    const problems = broken((_copy, pageCopy) => pageCopy.sections.push({ id: "nope", index: "99" }));
+    assert.ok(problems.some((problem) => problem.includes("nope")));
+  });
+
+  it("detecta una etapa del pipeline que no es una parada del recorrido", () => {
+    assert.ok(broken((_copy, pageCopy) => (pageCopy.pipeline.stages[0].id = "ship")).length > 0);
+  });
+
+  it("detecta un diagrama roto y una decisión incompleta", () => {
+    assert.ok(
+      broken((copy) => copy.projects[0].architecture.edges.push({ from: "web", to: "ghost" })).length > 0,
+    );
+    assert.ok(broken((copy) => (copy.projects[0].decisions[0].tradeoff = "")).length > 0);
+    assert.ok(
+      broken((copy) => (copy.projects[0].architecture.edges[0].label = "demasiado-largo")).length > 0,
+    );
+  });
+
+  it("detecta un porcentaje en el stack y un grupo fuera de orden", () => {
+    assert.ok(broken((copy) => (copy.stack[0].items[0].note = "80% real")).length > 0);
+    assert.ok(
+      broken((copy) => {
+        const [first] = copy.stack.splice(0, 1);
+        copy.stack.push(first);
+      }).length > 0,
+    );
+  });
+
+  it("detecta una experiencia desordenada", () => {
+    const problems = broken((_copy, pageCopy) => {
+      const entries = pageCopy.experience.entries;
+      [entries[0], entries[entries.length - 1]] = [entries[entries.length - 1], entries[0]];
+    });
+    assert.ok(problems.length > 0);
+  });
+
+  it("detecta un post con fecha que no existe", () => {
+    assert.ok(broken((_copy, pageCopy) => (pageCopy.writing.posts[0].date = "2026-02-30")).length > 0);
+  });
+
+  it("detecta un endpoint de contacto que no es https y un mailBody sin {message}", () => {
+    assert.ok(broken((copy) => (copy.contact.endpoint = "http://example.com")).length > 0);
+    assert.ok(broken((_copy, pageCopy) => (pageCopy.contactSection.mailBody = "{name}")).length > 0);
   });
 });
 

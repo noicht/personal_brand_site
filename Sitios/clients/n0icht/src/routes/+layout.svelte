@@ -2,6 +2,7 @@
   import "$lib/css/tokens.css";
   import "$lib/css/site.css";
   import "$lib/css/terminal.css";
+  import "$lib/css/sections.css";
   import "@sitios/kit/fx.css";
   import { onMount } from "svelte";
   import Background3D from "$lib/Components/Background3D.svelte";

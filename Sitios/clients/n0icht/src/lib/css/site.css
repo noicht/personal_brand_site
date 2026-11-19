@@ -535,6 +535,16 @@ section:focus {
   border-color: var(--c-amber);
 }
 
+/* Deshabilitado: atenuado sin `opacity` (que rompería el contraste) y sin la celda del hover */
+.site-btn:disabled,
+.site-btn:disabled:hover {
+  color: var(--c-muted);
+  background: transparent;
+  border-color: var(--c-border-strong);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* Etiqueta chica */
 .n0-tag {
   display: inline-flex;
@@ -694,17 +704,6 @@ section:focus {
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
     gap: var(--sp-8);
   }
-}
-
-/* ---------- Secciones provisorias ---------- */
-
-.n0-pending p {
-  max-width: 60ch;
-  color: var(--c-muted);
-}
-
-.n0-pending-status {
-  margin-top: var(--sp-4);
 }
 
 /* ---------- Movimiento reducido ---------- */

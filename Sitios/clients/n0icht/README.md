@@ -19,13 +19,15 @@ Antes de pushear: `check`, `test` y `build`. El CI solo buildea.
 
 | Archivo | Qué hace |
 | ------- | -------- |
-| `src/lib/content/` | Todo el contenido: identidad, menú, hero, textos de la terminal y de la paleta, proyectos, stack y contacto. Para cambiar un texto se toca acá, no en los `.svelte`. `types.js` describe la forma y `validate.js` la comprueba en los tests. |
+| `src/lib/content/` | Todo el contenido: identidad, menú, flags y orden de secciones (`site.js`, `sections.js`), hero, textos de la terminal y de la paleta, y cada sección (`pipeline.js`, `projects.js`, `stack.js`, `experience.js`, `writing.js`, `contact.js`). Para cambiar un texto se toca acá, no en los `.svelte`. `types.js` describe la forma, `validate.js` la comprueba en los tests e `index.js` junta lo que leen la página (`pageContent`) y la terminal (`terminalContent`). |
 | `src/lib/terminal/` | La lógica de la terminal y de la paleta, en TypeScript y sin DOM: `parser.ts`, `commands.ts`, `session.ts` (pantalla e historial), `boot.ts` (tiempos del arranque) y `palette.ts`. Cada uno tiene su `.test.ts` al lado. |
+| `src/lib/viz/` | La geometría de los gráficos, en TypeScript puro: `diagram.ts` (nodos y aristas del diagrama de arquitectura) y `gauge.ts` (el medio dial de los medidores del stack). Cada uno con su `.test.ts`. |
+| `src/lib/contact/` | `form.ts`: la lógica del formulario de contacto (validación, trampa para bots, payload, `mailto:` y endpoint), con su `.test.ts`. |
 | `src/lib/Components/` | Piezas de interfaz (abajo). |
 | `src/lib/stores/ui.js` | Estado compartido (paleta abierta, comando pedido a la terminal) y `runEffects`, que aplica lo que devuelven los comandos. |
 | `src/lib/stores/scene.js` | El fondo 3D: estado (`sceneStatus`, `pulseRequests`, `activeStage`) y `stageAnchor`, la acción que marca una sección como parada del recorrido. |
 | `src/lib/three/` | La escena: `stages.ts` (las seis etapas), `camera.ts` (matemática de la cámara), `graph.ts` (el grafo de arquitectura), `pulse.ts` (la onda de un pulso), `quality.ts` (tiers y nivel adaptativo) y `scene.ts` (el renderer). Todo puro salvo `scene.ts`, que recibe `three` por `loadThree()`. Cada módulo puro tiene su `.test.ts`. |
-| `src/lib/css/` | `tokens.css` (colores, tipografía, espaciado, capas), `site.css` (base, fondo — la escena 3D y su respaldo CSS —, layout, piezas) y `terminal.css` (terminal y paleta). Los componentes no llevan `<style>`. |
+| `src/lib/css/` | `tokens.css` (colores, tipografía, espaciado, capas), `site.css` (base, fondo — la escena 3D y su respaldo CSS —, layout, piezas), `terminal.css` (terminal y paleta) y `sections.css` (las secciones de contenido). Los componentes no llevan `<style>`. |
 | `src/routes/+layout.svelte` | Lo que se repite: fondo (`Background3D`), header con el menú, footer, atajo Cmd/Ctrl+K y la paleta. |
 | `src/routes/+page.svelte` | La página: una `<section id>` por bloque. |
 | `src/app.html` | `lang`, color del tema, íconos y precarga de fuentes. |
@@ -39,19 +41,30 @@ Antes de pushear: `check`, `test` y `build`. El CI solo buildea.
 - **`Hero`**: identidad, rol, lema y los dos botones, como HTML prerenderizado, más la terminal.
 - **`Terminal`**: arranque tipeado (una animación de CSS; se saltea, y con movimiento reducido no se anima) y línea de comandos. Comandos: `help`, `whoami`, `ls projects`, `cat stack`, `contact`, `deploy --prod`, `clear`. Flechas arriba y abajo recorren el historial.
 - **`CommandPalette`**: Cmd/Ctrl+K o el botón del header. Va a una sección, corre un comando en la terminal o abre un link. En pantallas chicas es el menú.
+- **`Section`**: envoltorio de cada sección (`<section id>` + encabezado `SYS//NN`); la usan todas las construidas y `PendingSection`, el panel provisorio de las que todavía no existen.
+- **`Pipeline`**: las seis etapas de 0 a producción. Cada una es una `stageAnchor`: al scrollear, el fondo 3D mueve la cámara, el riel marca el paso y el panel prende `ACTIVE`.
+- **`Projects`**, **`ProjectCase`**, **`ArchDiagram`**: casos de estudio como `<details>` exclusivos (abrir uno cierra el otro; `/#project-<slug>` llega abierto). El caso muestra problema, diagrama de arquitectura (SVG con alternativa de texto), decisiones, stack, resultado y links.
+- **`StackPanel`**, **`Gauge`**: el stack como panel de instrumentos: medidor de años en producción por grupo y estado de cada herramienta (activa, en reserva, en el banco), con leyenda. Sin porcentajes ni barras.
+- **`Experience`**: línea de tiempo orientada a resultados; la celda verde marca el trabajo en curso.
+- **`Writing`**: notas, detrás del flag `features.writing` (apagado por defecto).
+- **`Contact`**: formulario con pinta de terminal (validación por campo, honeypot, estado con `role="status"`). Hace POST al endpoint si lo hay (`PUBLIC_CONTACT_ENDPOINT` o `contact.endpoint`); si no, `mailto:` con el mensaje armado. Abajo van los canales directos, siempre en el HTML.
 - **`Seo`**: título, descripción, Open Graph y el JSON-LD de la persona.
 - **`Background3D`**: el fondo. Dibuja un grafo de arquitectura (nodos, aristas, paquetes, pulsos) sobre un piso con plano, y la cámara lo recorre siguiendo el scroll por las seis etapas del pipeline. Three se descarga después de `load`, del primer pintado y cuando el navegador está ocioso, y solo con WebGL2 de hardware y sin ahorro de datos; con render por software (SwiftShader, llvmpipe) o sin WebGL2 queda la grilla CSS. El scroll mueve la cámara por las `stageAnchor` de cada sección, el puntero hace paralaje y hover, y un click en el fondo (o `deploy --prod` en la terminal) manda un pulso al grafo. Con `prefers-reduced-motion` queda un cuadro fijo. `?debug3d` muestra un HUD con fps, cluster y calidad; `?debug3d=low|high` fuerza el tier.
 
 ## Cómo se agrega…
 
 - **Un comando**: el texto de ayuda en `content/terminal.js` (`commands`) y la función en `handlers` de `terminal/commands.ts`. Un test de `commands.test.ts` falla si uno de los dos falta.
-- **Una sección**: mientras no esté construida, una entrada en `pendingSections` de `content/site.js` le reserva el ancla. Al construirla, sale de esa lista y va como `<section id>` en `+page.svelte`.
-- **Una parada del recorrido 3D**: `use:stageAnchor={"build"}` (o el índice numérico) en la sección que marca esa etapa; hoy las `pendingSections` lo usan de forma provisional.
+- **Una sección**: una entrada en `sectionOrder` de `content/site.js` (con `feature` si va detrás de un flag) más su contenido y su componente, que se suma al mapa de `+page.svelte`. Mientras no esté construida, un stub en `pendingSections` le reserva el ancla con el panel provisorio.
+- **Un proyecto**: una entrada en `projects` de `content/projects.js` y nada más — el caso, el diagrama y `ls projects` salen del mismo objeto. `validate.js` comprueba la forma (diagrama, decisiones, links).
+- **Una etapa del pipeline**: es una parada del recorrido 3D (`StageId` de `three/stages.ts`), así que cambiarla implica tocar la escena; el validador exige que sean las seis en orden. El texto de cada etapa se edita en `content/pipeline.js`.
+- **Un post**: una entrada en `writing.posts` de `content/writing.js`, y prender `features.writing` en `site.js` cuando haya posts reales.
+- **El endpoint de contacto**: `contact.endpoint` en `content/contact.js` (`""` = modo mailto; un `https://…` público = POST ahí). Para probarlo en local, `PUBLIC_CONTACT_ENDPOINT` en un `.env` (CI buildea sin `.env`).
+- **Una parada del recorrido 3D**: `use:stageAnchor={"build"}` (o el índice numérico) en la sección que marca esa etapa; hoy lo usan las etapas del pipeline.
 - **Un color o una medida**: en `tokens.css`, nunca suelto en otro archivo.
 
 ## Contenido pendiente
 
-Lo que todavía es un placeholder está marcado `TODO(content)` en `src/lib/content/`: el mail, los perfiles (GitHub, LinkedIn), los proyectos y `site.url` (el dominio de producción). Los perfiles marcados `todo: true` no salen en el JSON-LD.
+Lo que todavía es un placeholder está marcado `TODO(content)` en `src/lib/content/`: el mail, los perfiles (GitHub, LinkedIn), los proyectos enteros (copy y links), las herramientas del pipeline, los estados y años del stack, roles y resultados de la experiencia, los posts de notas y `site.url` (el dominio de producción). Los perfiles marcados `todo: true` no salen en el JSON-LD, y los ítems `todo` llevan el tag `PLACEHOLDER` en la página.
 
 ## Reglas del sitio
 

@@ -112,7 +112,11 @@ const handlers: Record<string, Handler> = {
       return out([error(fill(terminal.messages.noSuchFile, { cmd: "cat", arg: command.args[0] }))]);
     }
     const width = Math.max(...stack.map((group) => group.label.length)) + 2;
-    return out(stack.map((group): Line => ({ kind: "out", tag: group.label.padEnd(width), text: group.items.join(" · ") })));
+    return out(
+      stack.map(
+        (group): Line => ({ kind: "out", tag: group.label.padEnd(width), text: group.items.map((item) => item.name).join(" · ") }),
+      ),
+    );
   },
 
   contact(_command, { terminal, contact }) {
