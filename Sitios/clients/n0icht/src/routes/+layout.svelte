@@ -4,6 +4,7 @@
   import "$lib/css/terminal.css";
   import "@sitios/kit/fx.css";
   import { onMount } from "svelte";
+  import Background3D from "$lib/Components/Background3D.svelte";
   import Container from "$lib/Components/Container.svelte";
   import Seo from "$lib/Components/Seo.svelte";
   import StatusDot from "$lib/Components/StatusDot.svelte";
@@ -44,8 +45,8 @@
 <div class="n0-app">
   <a class="n0-skip" href="#main">{ui.skipLink}</a>
 
-  <!-- Fondo decorativo, solo CSS. Más adelante acá también va el canvas 3D. -->
-  <div class="n0-bg" aria-hidden="true"></div>
+  <!-- Fondo: la escena 3D si hay WebGL; si no, la grilla CSS de respaldo -->
+  <Background3D />
 
   <header class="site-header">
     <Container class="site-header-inner">

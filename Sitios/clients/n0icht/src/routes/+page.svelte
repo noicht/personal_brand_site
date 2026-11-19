@@ -7,6 +7,7 @@
   import StatusDot from "$lib/Components/StatusDot.svelte";
   import Tag from "$lib/Components/Tag.svelte";
   import { pendingSections, ui } from "$lib/content/site.js";
+  import { stageAnchor } from "$lib/stores/scene.js";
 </script>
 
 <!-- Una <section id> por bloque; el menú y la paleta apuntan a esos ids. tabindex="-1" deja que la
@@ -14,9 +15,18 @@
 <main id="main">
   <Hero />
 
-  <!-- Secciones que todavía no están construidas: reservan el ancla con un panel provisorio -->
-  {#each pendingSections as section}
-    <section id={section.id} class="site-section n0-pending" tabindex="-1" aria-labelledby="{section.id}-title">
+  <!-- Secciones que todavía no están construidas: reservan el ancla con un panel provisorio.
+       `stageAnchor` es provisorio: hasta M3 cada sección pendiente hace las veces de una etapa
+       del pipeline para poder probar la sincronía del fondo 3D con el scroll; las anclas reales
+       van a ser los pasos del pipeline. -->
+  {#each pendingSections as section, index}
+    <section
+      id={section.id}
+      class="site-section n0-pending"
+      tabindex="-1"
+      aria-labelledby="{section.id}-title"
+      use:stageAnchor={index}
+    >
       <Container>
         <!-- El reveal va adentro y no en la <section>: si la sección misma se desplaza, el ancla
              queda corrida al navegar -->

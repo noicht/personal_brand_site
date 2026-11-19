@@ -20,6 +20,7 @@
   import { terminalContent } from "$lib/content/index.js";
   import { terminal as copy } from "$lib/content/terminal.js";
   import { runEffects, terminalRequest } from "$lib/stores/ui.js";
+  import { requestPulse } from "$lib/stores/scene.js";
   import { bootSequence } from "$lib/terminal/boot.ts";
   import { MAX_INPUT } from "$lib/terminal/parser.ts";
   import { createSession, historyNext, historyPrev, submit } from "$lib/terminal/session.ts";
@@ -65,8 +66,10 @@
     session = result.session;
     value = "";
 
+    // El pulso también viaja al fondo 3D: `deploy --prod` enciende el cluster de deploy
     if (result.effects.some((effect) => effect.type === "pulse")) {
       pulsing = true;
+      requestPulse();
       clearTimeout(pulseTimer);
       pulseTimer = setTimeout(() => (pulsing = false), PULSE_MS);
     }

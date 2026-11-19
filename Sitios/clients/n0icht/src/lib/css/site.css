@@ -150,8 +150,9 @@ section:focus {
   transform: none;
 }
 
-/* ---------- Fondo: grilla de plano, ruido y scanlines, solo con CSS ----------
-   Queda detrás de todo. Más adelante también es lo que se ve si WebGL no está disponible. */
+/* ---------- Fondo: escena 3D y, de respaldo, grilla de plano, ruido y scanlines ----------
+   El canvas lo dibuja `Background3D`; estas capas CSS quedan detrás de todo y son lo que se ve
+   si no hay WebGL (o mientras la escena todavía no arrancó). */
 
 .n0-app {
   position: relative;
@@ -179,11 +180,37 @@ section:focus {
     var(--c-bg);
 }
 
+/* Canvas del fondo 3D: transparente sobre el fondo CSS; `is-live` lo prende con
+   --scene-intensity. En 100lvh para que no se redimensione cuando el celular esconde su barra */
+.n0-bg-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  height: 100lvh;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 600ms var(--ease);
+}
+
+.n0-bg.is-live .n0-bg-canvas {
+  opacity: var(--scene-intensity);
+}
+
+/* Con la escena prendida, la grilla de CSS le deja el lugar al piso 3D */
+.n0-bg.is-live::before {
+  opacity: 0;
+}
+
 /* Grilla: líneas finas cada --bg-grid y una más marcada cada cinco. Se desvanece hacia abajo */
 .n0-bg::before {
   content: "";
   position: absolute;
   inset: 0;
+  opacity: 1;
+  transition: opacity 600ms var(--ease);
   --line: color-mix(in srgb, var(--c-cyan) 7%, transparent);
   --line-major: color-mix(in srgb, var(--c-cyan) 11%, transparent);
   background-image:
@@ -210,6 +237,23 @@ section:focus {
     repeating-linear-gradient(to bottom, transparent 0 2px, color-mix(in srgb, #000 22%, transparent) 2px 3px),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.09 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: auto, 160px 160px;
+}
+
+/* HUD de `?debug3d`: estado de la escena, abajo a la izquierda, sin robar clicks */
+.n0-bg-hud {
+  position: fixed;
+  bottom: var(--sp-3);
+  left: var(--sp-3);
+  z-index: var(--z-hud);
+  max-width: calc(100% - var(--sp-3) * 2);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--c-green);
+  background: color-mix(in srgb, var(--c-bg) 88%, transparent);
+  border: var(--border);
+  pointer-events: none;
 }
 
 /* ---------- Layout ---------- */
@@ -326,6 +370,7 @@ section:focus {
 .site-footer {
   padding-block: var(--sp-6);
   border-top: var(--border);
+  background: color-mix(in srgb, var(--c-bg) 86%, transparent);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--c-muted);
@@ -406,9 +451,22 @@ section:focus {
 
 /* Encabezado de sección: micro-etiqueta numerada, título y una franja de advertencia */
 .n0-sechead {
+  position: relative;
+  isolation: isolate;
   display: grid;
   gap: var(--sp-2);
   margin-bottom: var(--sp-5);
+}
+
+/* Scrim detrás del encabezado: el fondo 3D no le roba contraste al título */
+.n0-sechead::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  inset-block: calc(var(--sp-3) * -1);
+  inset-inline: calc(var(--gutter) * -1) 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c-bg) 84%, transparent) 55%, transparent 100%);
 }
 
 .n0-sechead .n0-micro {
@@ -552,10 +610,23 @@ section:focus {
   align-items: center;
 }
 
+/* Scrim detrás del texto del hero: el fondo 3D no lo vuelve ilegible */
 .n0-hero-copy {
+  position: relative;
+  isolation: isolate;
   display: grid;
   gap: var(--sp-4);
   justify-items: start;
+}
+
+.n0-hero-copy::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  inset-block: calc(var(--sp-6) * -1);
+  inset-inline: calc(var(--gutter) * -1);
+  background: radial-gradient(farthest-corner, color-mix(in srgb, var(--c-bg) 86%, transparent) 62%, transparent 100%);
 }
 
 .n0-hero-meta {

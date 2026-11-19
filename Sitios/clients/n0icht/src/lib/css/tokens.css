@@ -68,6 +68,7 @@
   --z-bg: -1;
   --z-content: 1;
   --z-header: 20;
+  --z-hud: 25;
   --z-skip: 30;
 
   /* Movimiento */
@@ -75,7 +76,8 @@
   --dur-2: 240ms;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  /* Fondo: tamaño de la grilla e intensidad general (0 lo apaga) */
+  /* Fondo: tamaño de la grilla, intensidad general y del canvas 3D en vivo (0 lo apaga) */
   --bg-grid: 3rem;
   --bg-intensity: 1;
+  --scene-intensity: 0.8;
 }

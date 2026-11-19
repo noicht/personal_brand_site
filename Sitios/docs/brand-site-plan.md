@@ -583,3 +583,89 @@ Known limitations:
 
 - Without JavaScript the terminal input is disabled and, below 62rem, there is no menu.
 - On small screens the terminal input is 16px (avoids iOS zoom) next to a 12px prompt.
+
+### M2. 3D background (2026-11-19)
+
+Done, in `clients/n0icht/`:
+
+- `src/lib/three/`: `stages.ts` (the six stages), `camera.ts` (scroll-to-camera mapping, cluster
+  selection and weights, Catmull-Rom pose over per-stage waypoints), `graph.ts` (seeded graph: six
+  clusters of service/DB/queue/cache nodes, edges, adjacency), `pulse.ts` (BFS hops, nearest node
+  in screen space, pulse brightness, cascade progress), `quality.ts` (low/high tiers, adaptive
+  levels, effective DPR, software-renderer detection). All pure, each with a `.test.ts`.
+  `scene.ts` is the only renderer file: type-only imports of `three` at module level, runtime
+  symbols through `loadThree()` (`await import("three")`).
+- Scene: one `InstancedMesh` per node kind (box, cylinder, hex disc, octahedron), `LineSegments`
+  edges, `Points` for halos and packets, blueprint grid floor with corner brackets, fog. Colours
+  are read from the CSS tokens. 9 draw calls; 60 nodes on the high tier, 36 on the low tier.
+- `Components/Background3D.svelte`: fixed `aria-hidden` canvas with `pointer-events: none` inside
+  the existing `.n0-bg` layer, whose CSS grid is the fallback. Start-up is `load` -> first paint ->
+  idle -> WebGL2 context -> dynamic import -> `compileAsync`, each step in its own task.
+- `stores/scene.js`: `stageAnchor` Svelte action (one shared `IntersectionObserver` on the middle
+  line of the viewport plus a `ResizeObserver`; no scroll listener), `activeStage`, `sceneStatus`,
+  `pulseRequests`. The scene reads the position once per frame inside its `requestAnimationFrame`.
+- Pointer: parallax, hover glow (fine pointers only), click on empty background pulses from the
+  nearest node with a packet cascade. `deploy --prod` pulses the deploy cluster.
+- Performance: DPR capped at 2 (1.5 on the low tier), typed arrays and scratch objects reused
+  (no per-frame allocations), loop stopped when the tab is hidden or the canvas is off-screen,
+  adaptive quality steps down on slow frames, no post-processing on any tier, `dispose()` frees
+  geometries, materials, textures, renderer and every listener/observer.
+- Fallbacks: no WebGL2, software rendering (SwiftShader, llvmpipe), `Save-Data`, a failed import or
+  a lost context all leave the CSS background and never download or keep `three`.
+  `prefers-reduced-motion` renders a single still frame, redrawn only on stage change; clicks do
+  not pulse.
+- Debug: `?debug3d` shows a HUD (fps, cluster, quality, DPR, nodes, draw calls);
+  `?debug3d=low|high` forces the tier. Off by default.
+- Temporary: the `pendingSections` placeholders carry `use:stageAnchor={index}` so scroll sync can
+  be tested. M3 moves the anchors to the real pipeline steps.
+
+Decisions and deviations from this plan:
+
+- File layout differs from section 8: TypeScript modules (as the M2 prompt asked) named above
+  instead of `nodes.js`/`edges.js`/`packets.js`/`theme.js`; the component is `Background3D.svelte`,
+  not `SystemGraph.svelte`; the fallback is the CSS grid, not a static SVG.
+- The pulse is routed in `Terminal.svelte` through `requestPulse()` (the `pulse` effect already
+  existed), so `terminal/commands.ts` did not change.
+- Dependencies, exact: `three` 0.187.0, `@types/three` 0.187.0 (dev). The lock diff only adds
+  entries; `biblioteca` still builds.
+- Software renderers get the CSS fallback on purpose: a CPU-rendered scene costs more than it gives.
+
+Gate: `npm run check` (0 errors, 0 warnings), `npm test` (158 pass, 37 suites),
+`npm run build -w n0icht` and `-w biblioteca`, runes guard clean, no top-level runtime import of
+`three`. No lint or format step exists in the repo (D2), so none ran. Initial JS for `/` is
+54.7 KB gzip (budget 60); `three` and the scene are lazy chunks and `WebGLRenderer` appears only
+there.
+
+Measurements (Chrome for Testing 158 headless, production build under `vite preview`):
+
+| Lighthouse mobile (median of runs) | Perf | FCP | LCP | TBT | CLS | SI | TTI |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| M1 baseline | 100 | - | - | - | - | - | - |
+| M2, software GL (CSS fallback path, `three` never loads) | 99 | 762 ms | 762 ms | 143 ms | 0 | 1031 ms | 1805 ms |
+| M2, hardware GL (Intel Iris Xe via ANGLE, scene live) | **77** | 762 ms | 762 ms | **1072 ms** | 0 | 2042 ms | 3384 ms |
+
+- LCP is not blocked: 762 ms in both profiles, the same as FCP; the scene starts after it.
+- Frame rate with the scene live: desktop 1280x800 60 fps (p99 16.8 ms, no long tasks, high tier,
+  60 nodes); phone profile 360px with touch 59.8-60 fps (p99 16.8 ms, one frame over 20 ms, no
+  long tasks, low tier, 36 nodes, DPR 1.5).
+- Browser checks passed: live desktop and mobile, stage sync on all six anchors, hover, click
+  pulse and cascade, `deploy --prod` pulse, off-screen and hidden-tab pause, reduced motion (one
+  frame, no loop), no WebGL (CSS fallback, no `three` request), context loss, UI clickable above
+  the canvas, no console or network errors.
+
+Known limitations:
+
+- **Lighthouse with the scene live is 77, below the 90 target.** The whole gap is TBT: under
+  Lighthouse's 4x CPU throttle, parsing `three` and compiling shaders (synchronous waits on the GPU
+  process) make long tasks after first paint. Unthrottled, the longest scene task is 86 ms.
+  Start-up was already split into separate tasks and the context creation cut from ~508 ms to
+  ~12 ms. Lighthouse also warned that the test machine is slower than its throttling model
+  assumes. What is left to try: a smaller hand-picked `three` build, fewer shader programs, or
+  starting the scene on first interaction. Deferring the start past the TTI window would raise the
+  score without helping a real user, so it was not done.
+- Measured on one laptop GPU in headless Chrome with a phone viewport and CPU throttle; no real
+  phone, no Safari or Firefox pass for the scene.
+- Screenshots in headless mode show the scene at `--scene-intensity: 0.8`; the final look
+  (contrast behind text, cluster colours) needs an eye on a real screen.
+
+Open `TODO(content)`: unchanged from M1.
