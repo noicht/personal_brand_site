@@ -1,0 +1,29 @@
+{
+  "name": "n0icht",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+    "test": "node --test \"src/**/*.test.ts\" \"src/**/*.test.js\"",
+    "og": "node scripts/og-image.mjs"
+  },
+  "dependencies": {
+    "@sitios/kit": "*",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.11",
+    "@sveltejs/kit": "^2.70.4",
+    "@sveltejs/vite-plugin-svelte": "^4.0.1",
+    "@types/node": "22.20.5",
+    "@types/three": "0.187.0",
+    "svelte": "^5.57.3",
+    "svelte-check": "4.7.8",
+    "typescript": "6.0.3",
+    "vite": "^5.4.21"
+  }
+}

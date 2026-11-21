@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- El mismo color que --c-bg en tokens.css -->
+    <meta name="theme-color" content="#0b0d10" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%sveltekit.assets%/brand/favicon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/brand/logo-b-glyph-mark.svg" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/brand/apple-touch-icon.png" />
+    <!-- Las dos fuentes que se ven sin scrollear: el lema (Chakra Petch 700) y el header y la terminal (JetBrains Mono) -->
+    <link rel="preload" href="%sveltekit.assets%/fonts/chakra-petch-latin-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="%sveltekit.assets%/fonts/jetbrains-mono-latin-wght.woff2" as="font" type="font/woff2" crossorigin />
+    %sveltekit.head%
+    <!-- Sin JavaScript: nadie le saca la opacidad 0 a .fx-reveal (lo hace reveal.js del kit), y el botón del
+         menú no abre nada. Va después de %sveltekit.head% para ganarle por orden al CSS del sitio. -->
+    <noscript>
+      <style>
+        .fx-reveal { opacity: 1; transform: none; }
+        .n0-menu { display: none; }
+        @media (max-width: 61.999rem) {
+          .site-header { position: static; }
+          .site-header-inner { flex-wrap: wrap; padding-block: var(--sp-2); }
+          .site-nav { display: flex; flex-wrap: wrap; margin-left: 0; }
+        }
+      </style>
+    </noscript>
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>
