@@ -17,7 +17,19 @@
  * @property {string} url Origen de producción, sin barra final. Vacío: todavía no hay dominio.
  * @property {string} locale Para `og:locale`.
  * @property {string} logo Ruta del logo dentro de `static/`.
+ * @property {OgImage} ogImage Imagen para compartir (Open Graph / Twitter), generada a mano.
  * @property {string[]} knowsAbout Temas para el JSON-LD.
+ */
+
+/**
+ * La imagen `og.png` que se genera con `scripts/og-image.mjs` (`npm run og -w n0icht`).
+ * @typedef {object} OgImage
+ * @property {string} path Ruta dentro de `static/` (empieza con `/`).
+ * @property {number} width Ancho en píxeles (1200).
+ * @property {number} height Alto en píxeles (630).
+ * @property {string} type MIME de la imagen (`image/png`).
+ * @property {string} alt Texto alternativo: lo leen los lectores de pantalla y algunos
+ *   clientes de mensajería cuando no pueden mostrar la imagen.
  */
 
 /**

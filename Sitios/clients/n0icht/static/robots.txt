@@ -1,0 +1,6 @@
+# Producción se indexa. QA sirve este mismo archivo, pero Caddy le agrega X-Robots-Tag: noindex
+# (por eso acá no hay Disallow: un bot tiene que poder entrar para ver ese header).
+# Cuando exista el dominio: agregar la línea `Sitemap: https://<dominio>/sitemap.xml`
+# y crear static/sitemap.xml (ver README, "Salir a producción").
+User-agent: *
+Allow: /

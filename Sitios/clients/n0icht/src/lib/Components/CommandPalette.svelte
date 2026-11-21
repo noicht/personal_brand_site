@@ -120,6 +120,7 @@
       aria-label={copy.listLabel}
       hidden={results.length === 0}
       bind:this={list}
+      tabindex="-1"
     >
       {#each results as item, index (item.id)}
         <!-- El teclado lo maneja el campo (aria-activedescendant): las opciones no reciben foco. -->

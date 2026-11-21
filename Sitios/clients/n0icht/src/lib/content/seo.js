@@ -1,7 +1,18 @@
 // @ts-check
 /**
- * Datos estructurados (JSON-LD) de la persona. Sin DOM: lo usa `Seo.svelte` y se prueba en Node.
+ * Datos estructurados (JSON-LD) de la persona y URLs absolutas para las meta etiquetas.
+ * Sin DOM: lo usa `Seo.svelte` y se prueba en Node.
  */
+
+/**
+ * Convierte una ruta del sitio en URL absoluta cuando hay dominio de producción
+ * (`site.url`); sin dominio devuelve `""` y la etiqueta que la usa no se emite.
+ * @param {import("./types.js").Site} site
+ * @param {string} path Ruta desde la raíz: `/` o `site.ogImage.path`.
+ */
+export function absoluteUrl(site, path) {
+  return site.url ? site.url + path : "";
+}
 
 /**
  * @param {import("./types.js").Site} site

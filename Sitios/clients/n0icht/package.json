@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
-    "test": "node --test \"src/**/*.test.ts\" \"src/**/*.test.js\""
+    "test": "node --test \"src/**/*.test.ts\" \"src/**/*.test.js\"",
+    "og": "node scripts/og-image.mjs"
   },
   "dependencies": {
     "@sitios/kit": "*",

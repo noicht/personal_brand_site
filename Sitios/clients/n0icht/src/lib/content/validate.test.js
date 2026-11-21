@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { contact } from "./contact.js";
 import { pageContent as page, terminalContent as content } from "./index.js";
-import { jsonLdScript, personJsonLd } from "./seo.js";
+import { absoluteUrl, jsonLdScript, personJsonLd } from "./seo.js";
 import { nav, site } from "./site.js";
 import { BOOT_LINE_MAX, validateContent } from "./validate.js";
 
@@ -50,6 +50,26 @@ describe("validateContent", () => {
     assert.equal(broken((copy) => (copy.site.url = "https://example.com")).length, 0);
     assert.equal(broken((copy) => (copy.site.url = "https://example.com/")).length, 1);
     assert.equal(broken((copy) => (copy.site.url = "http://example.com")).length, 1);
+  });
+
+  it("site.title no pasa de 60 caracteres", () => {
+    assert.equal(broken((copy) => (copy.site.title = "x".repeat(61))).length, 1);
+    assert.equal(broken((copy) => (copy.site.title = "x".repeat(60))).length, 0);
+  });
+
+  it("site.description queda entre 70 y 160 caracteres", () => {
+    assert.equal(broken((copy) => (copy.site.description = "x".repeat(69))).length, 1);
+    assert.equal(broken((copy) => (copy.site.description = "x".repeat(160))).length, 0);
+    assert.equal(broken((copy) => (copy.site.description = "x".repeat(161))).length, 1);
+  });
+
+  it("site.ogImage es un PNG de 1200x630 con alt", () => {
+    assert.equal(broken((copy) => (copy.site.ogImage = null)).length, 4);
+    assert.equal(broken((copy) => (copy.site.ogImage.path = "brand/og.png")).length, 1);
+    assert.equal(broken((copy) => (copy.site.ogImage.path = "/brand/og.jpg")).length, 1);
+    assert.equal(broken((copy) => (copy.site.ogImage.width = 1000)).length, 1);
+    assert.equal(broken((copy) => (copy.site.ogImage.type = "image/jpeg")).length, 1);
+    assert.equal(broken((copy) => (copy.site.ogImage.alt = "")).length, 1);
   });
 
   it("el menú del sitio apunta a secciones distintas", () => {
@@ -163,5 +183,18 @@ describe("JSON-LD", () => {
     assert.ok(html.startsWith('<script type="application/ld+json">'));
     const json = html.slice('<script type="application/ld+json">'.length, -"</script>".length);
     assert.equal(JSON.parse(json).name, "</script><script>alert(1)</script>");
+  });
+});
+
+describe("absoluteUrl", () => {
+  it("sin dominio devuelve cadena vacía", () => {
+    assert.equal(absoluteUrl({ ...site, url: "" }, "/brand/og.png"), "");
+    assert.equal(absoluteUrl({ ...site, url: "" }, "/"), "");
+  });
+
+  it("con dominio arma la URL absoluta", () => {
+    const withUrl = { ...site, url: "https://example.com" };
+    assert.equal(absoluteUrl(withUrl, "/brand/og.png"), "https://example.com/brand/og.png");
+    assert.equal(absoluteUrl(withUrl, "/"), "https://example.com/");
   });
 });

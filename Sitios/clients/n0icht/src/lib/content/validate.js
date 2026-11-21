@@ -431,6 +431,19 @@ export function validateContent(content, page) {
   check(site.identity === `${site.name} · ${site.alias}`, "site.identity tiene que ser «nombre · alias»");
   check(site.url === "" || /^https:\/\/[^/]+$/.test(site.url), "site.url va vacío o como https://dominio, sin barra final");
   check(site.logo.startsWith("/"), "site.logo es una ruta desde static/ y empieza con /");
+  check(site.title.length <= 60, "site.title pasa de 60 caracteres");
+  check(
+    site.description.length >= 70 && site.description.length <= 160,
+    "site.description tiene que tener entre 70 y 160 caracteres",
+  );
+  const og = site.ogImage;
+  check(
+    isText(og?.path) && og.path.startsWith("/") && og.path.endsWith(".png"),
+    "site.ogImage.path tiene que ser una ruta /….png dentro de static/",
+  );
+  check(og?.width === 1200 && og?.height === 630, "site.ogImage tiene que medir 1200x630");
+  check(og?.type === "image/png", "site.ogImage.type tiene que ser image/png");
+  check(isText(og?.alt), "site.ogImage.alt está vacío");
 
   problems.push(...validateSections(page, nav));
 

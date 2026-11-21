@@ -1,9 +1,10 @@
 /**
  * El renderer de la escena 3D: un grafo de arquitectura viva (nodos, aristas, paquetes,
  * pulsos) sobre un piso de plano, con niebla, halos aditivos y una cámara que recorre las
- * seis etapas del pipeline siguiendo el scroll. Three llega por `loadThree()` — un import
- * dinámico que solo corre desde `Background3D.svelte` — así el chunk queda aparte y el
- * prerender no lo toca.
+ * seis etapas del pipeline siguiendo el scroll. Three llega por `loadThree()` — un
+ * import dinámico que solo corre dentro del worker (`three/host.ts`, enganchado por
+ * `scene.worker.ts`) — así el chunk queda aparte, nunca toca el hilo principal y el
+ * prerender no lo ve.
  *
  * Reglas de la casa: nada de three a nivel de módulo (solo `import type`), nada de
  * post-procesado ni sombras, pixel ratio por `effectiveDpr`, pausa con la pestaña oculta o
@@ -159,7 +160,7 @@ type BufferGeo = THREE.BufferGeometry;
 type Points3D = THREE.Points;
 type Material3D = THREE.Material;
 type Color3D = THREE.Color;
-type CanvasTex = THREE.CanvasTexture;
+type CanvasTex = THREE.CanvasTexture<OffscreenCanvas>;
 
 interface AmbientPacket {
   edge: number;
@@ -191,7 +192,7 @@ const ADAPTIVE_MAX_FRAME_MS = 250;
 
 export function createScene(
   T: Three,
-  canvas: HTMLCanvasElement,
+  canvas: OffscreenCanvas,
   gl: WebGL2RenderingContext,
   options: SceneOptions,
 ): SceneHandle {
@@ -351,7 +352,7 @@ export function createScene(
   let haloPosAttr: FloatAttr | null = null;
   let haloColAttr: FloatAttr | null = null;
   if (tier.halos) {
-    haloTexture = makeHaloTexture(T, canvas.ownerDocument);
+    haloTexture = makeHaloTexture(T);
     haloGeo = new T.BufferGeometry();
     const haloPos = new Float32Array(nodeTotal * 3);
     const haloCol = new Float32Array(nodeTotal * 3);
@@ -983,7 +984,15 @@ export function createScene(
 
   // ---------- handle ----------
 
-  const ready = renderer.compileAsync(scene, camera).then(() => {
+  // Sin KHR_parallel_shader_compile (Firefox) compileAsync pide la extensión con
+  // extensions.get(), que avisa en consola; has() consulta sin avisar y se compila
+  // síncrono en el worker.
+  const compile = renderer.extensions.has("KHR_parallel_shader_compile")
+    ? renderer.compileAsync(scene, camera)
+    : Promise.resolve().then(() => {
+        renderer.compile(scene, camera);
+      });
+  const ready = compile.then(() => {
     if (destroyed) return;
     compiled = true;
     if (still) updateCameraStill();
@@ -1089,11 +1098,9 @@ export function createScene(
 }
 
 /** Textura radial para los halos: blanca en el centro, transparente en el borde. */
-function makeHaloTexture(T: Three, doc: Document) {
+function makeHaloTexture(T: Three) {
   const size = 64;
-  const canvas = doc.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  const canvas = new OffscreenCanvas(size, size);
   const ctx = canvas.getContext("2d");
   if (ctx) {
     const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
@@ -1103,7 +1110,7 @@ function makeHaloTexture(T: Three, doc: Document) {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, size, size);
   }
-  return new T.CanvasTexture(canvas);
+  return new T.CanvasTexture<OffscreenCanvas>(canvas);
 }
 
 /** Grilla del piso: líneas cada 2 unidades, cada quinta más marcada. */

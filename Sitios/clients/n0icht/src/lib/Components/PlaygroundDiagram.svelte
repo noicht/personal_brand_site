@@ -107,7 +107,9 @@
       orientation = width < 600 ? "tall" : "wide";
       layout = layoutTopology(orientation);
     };
-    apply(wrapper.clientWidth);
+    // Sin lectura de clientWidth acá: medirlo fuerza un layout síncrono de toda la
+    // página dentro del mount. El ResizeObserver entrega el primer ancho en el
+    // próximo paso de renderizado, con el layout que el navegador ya iba a hacer.
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) apply(entry.contentRect.width);
     });

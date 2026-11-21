@@ -8,9 +8,10 @@
  * IntersectionObserver con rootMargin -50% arriba y abajo detecta el cruce, y un
  * ResizeObserver invalida las medidas cacheadas.
  *
- * `readStagePosition` la llama la escena una vez por cuadro: devuelve la posición sobre el
- * recorrido (0 = idea … 5 = observe, con decimales en los bordes). Sin anclas usa el
- * progreso de scroll de toda la página.
+ * `readStagePosition` la usa `Background3D.svelte`: se la empuja al worker cuando
+ * cambia el scroll o la sección activa (la escena la consulta en cada cuadro).
+ * Devuelve la posición sobre el recorrido (0 = idea … 5 = observe, con decimales en
+ * los bordes). Sin anclas usa el progreso de scroll de toda la página.
  */
 import { writable } from "svelte/store";
 import { alongRegion, stageFromProgress, stagePosition } from "../three/camera.ts";
@@ -74,6 +75,11 @@ function documentOrder(a, b) {
  */
 function pickActive() {
   const ordered = [...regions.keys()].sort(documentOrder);
+  // La línea de lectura es la mitad de la ventana (el rootMargin -50% del observer).
+  // inView/passed se miden en vivo: el observer solo avisa cuando un ancla CRUZA la
+  // línea, y una que nunca la cruza (la última etapa, al fondo de la página) igual
+  // tiene que contar como pasada.
+  const line = window.innerHeight / 2;
   /** @type {Element | null} */
   let lastInView = null;
   /** @type {Element | null} */
@@ -81,6 +87,9 @@ function pickActive() {
   for (const node of ordered) {
     const region = regions.get(node);
     if (!region) continue;
+    const rect = node.getBoundingClientRect();
+    region.inView = rect.top <= line && rect.bottom >= line;
+    region.passed = rect.top < line;
     if (region.inView) lastInView = node;
     if (region.passed) lastPassed = node;
   }
@@ -114,6 +123,11 @@ function ensureObservers() {
     stale = true;
   });
   resizeObserver.observe(document.body);
+  // Un salto por ancla (o a un ancla) puede no cruzar la línea de lectura en ningún
+  // ancla: el observer no dispara y la etapa activa queda vieja. scrollend reevalúa
+  // al terminar el salto. Safari todavía no tiene scrollend: ahí queda el
+  // comportamiento anterior (la etapa se actualiza en el próximo cruce).
+  window.addEventListener("scrollend", pickActive, { passive: true });
 }
 
 /**
@@ -148,14 +162,16 @@ export function stageAnchor(node, stage) {
         if (resizeObserver) resizeObserver.disconnect();
         intersectionObserver = null;
         resizeObserver = null;
+        window.removeEventListener("scrollend", pickActive);
       }
     },
   };
 }
 
 /**
- * Posición sobre el recorrido (0..STAGE_COUNT-1), para la cámara. La escena la llama una vez
- * por cuadro; cuando la región activa no cambió de tamaño solo lee scrollY e innerHeight.
+ * Posición sobre el recorrido (0..STAGE_COUNT-1), para la cámara. `Background3D.svelte`
+ * la manda al worker cuando scrollea la página o cambia la sección activa; cuando la
+ * región activa no cambió de tamaño solo lee scrollY e innerHeight.
  */
 export function readStagePosition() {
   if (!activeRegion || !activeNode) {

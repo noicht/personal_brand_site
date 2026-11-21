@@ -11,6 +11,7 @@ npm run build -w n0icht      # deja el sitio en clients/n0icht/build/
 npm run preview -w n0icht    # sirve ese build
 npm run check -w n0icht      # svelte-check: tipos y accesibilidad
 npm test -w n0icht           # tests con el runner de Node (node --test)
+npm run og -w n0icht         # regenera static/brand/og.png (ver scripts/og-image.mjs)
 ```
 
 Antes de pushear: `check`, `test` y `build`. El CI solo buildea.
@@ -19,21 +20,23 @@ Antes de pushear: `check`, `test` y `build`. El CI solo buildea.
 
 | Archivo | Qué hace |
 | ------- | -------- |
-| `src/lib/content/` | Todo el contenido: identidad, menú, flags y orden de secciones (`site.js`, `sections.js`), hero, textos de la terminal y de la paleta, y cada sección (`pipeline.js`, `projects.js`, `stack.js`, `experience.js`, `writing.js`, `contact.js`). Para cambiar un texto se toca acá, no en los `.svelte`. `types.js` describe la forma, `validate.js` la comprueba en los tests e `index.js` junta lo que leen la página (`pageContent`) y la terminal (`terminalContent`). |
+| `src/lib/content/` | Todo el contenido: identidad, menú, flags y orden de secciones (`site.js`, `sections.js`), hero, textos de la terminal y de la paleta, y cada sección (`pipeline.js`, `projects.js`, `stack.js`, `experience.js`, `writing.js`, `contact.js`). Para cambiar un texto se toca acá, no en los `.svelte`. `types.js` describe la forma, `validate.js` la comprueba en los tests e `index.js` junta lo que leen la página (`pageContent`) y la terminal (`terminalContent`). `seo.js` arma el JSON-LD y las URLs absolutas; `release.js` + `release.test.js` son la guardia de salida a producción (domain, `site.url`, `robots.txt`, `sitemap.xml` y `og.png` coinciden). |
 | `src/lib/terminal/` | La lógica de la terminal y de la paleta, en TypeScript y sin DOM: `parser.ts`, `commands.ts`, `session.ts` (pantalla e historial), `boot.ts` (tiempos del arranque) y `palette.ts`. Cada uno tiene su `.test.ts` al lado. |
 | `src/lib/viz/` | La geometría de los gráficos, en TypeScript puro: `diagram.ts` (nodos y aristas del diagrama de arquitectura) y `gauge.ts` (el medio dial de los medidores del stack). Cada uno con su `.test.ts`. |
-| `src/lib/playground/` | La lógica del simulador de diseño de sistemas, en TypeScript puro: `model.ts` (config, medida, paso del tiempo y salud), `presets.ts`, `topology.ts` (cajas, estados, aristas y rutas del diagrama), `packets.ts` (los paquetes animados, con seed) y `format.ts` (los números). Cada uno con su `.test.ts`. |
+| `src/lib/playground/` | La lógica del simulador de diseño de sistemas, en TypeScript puro: `model.ts` (config, medida, paso del tiempo y salud), `presets.ts`, `topology.ts` (cajas, estados, aristas y rutas del diagrama), `packets.ts` (los paquetes animados, con seed), `format.ts` (los números) y `realign.ts` (si hay que rehacer el scroll al ancla después de montar la sección). Cada uno con su `.test.ts`. |
 | `src/lib/contact/` | `form.ts`: la lógica del formulario de contacto (validación, trampa para bots, payload, `mailto:` y endpoint), con su `.test.ts`. |
 | `src/lib/Components/` | Piezas de interfaz (abajo). |
 | `src/lib/stores/ui.js` | Estado compartido (paleta abierta, comando pedido a la terminal) y `runEffects`, que aplica lo que devuelven los comandos. |
 | `src/lib/stores/scene.js` | El fondo 3D: estado (`sceneStatus`, `pulseRequests`, `activeStage`) y `stageAnchor`, la acción que marca una sección como parada del recorrido. |
-| `src/lib/three/` | La escena: `stages.ts` (las seis etapas), `camera.ts` (matemática de la cámara), `graph.ts` (el grafo de arquitectura), `pulse.ts` (la onda de un pulso), `quality.ts` (tiers y nivel adaptativo) y `scene.ts` (el renderer). Todo puro salvo `scene.ts`, que recibe `three` por `loadThree()`. Cada módulo puro tiene su `.test.ts`. |
+| `src/lib/three/` | La escena: `stages.ts` (las seis etapas), `camera.ts` (matemática de la cámara), `graph.ts` (el grafo de arquitectura), `pulse.ts` (la onda de un pulso), `quality.ts` (tiers y nivel adaptativo), `protocol.ts` (los mensajes entre el hilo principal y el worker), `host.ts` (la máquina de estados del worker: prueba el contexto WebGL2, carga la escena recién ahí y reenvía las entradas; pura, con `host.test.ts`), `scene.worker.ts` (la entrada del worker) y `scene.ts` (el renderer, que solo corre adentro del worker). Todo puro salvo `scene.ts`, que recibe `three` por `loadThree()`. Cada módulo puro tiene su `.test.ts`. |
 | `src/lib/css/` | `tokens.css` (colores, tipografía, espaciado, capas), `site.css` (base, fondo — la escena 3D y su respaldo CSS —, layout, piezas), `terminal.css` (terminal y paleta), `sections.css` (las secciones de contenido y el shell del playground) y `playground.css` (el simulador; lo importa el componente lazy, así que viaja en su chunk). Los componentes no llevan `<style>`. |
 | `src/routes/+layout.svelte` | Lo que se repite: fondo (`Background3D`), header con el menú, footer, atajo Cmd/Ctrl+K y la paleta. |
 | `src/routes/+page.svelte` | La página: una `<section id>` por bloque. |
-| `src/app.html` | `lang`, color del tema, íconos y precarga de fuentes. |
-| `static/brand/` | El logo (SVG, tal como se entregó) y sus PNG: favicon de 32px e ícono de 180px. |
+| `src/app.html` | `lang`, color del tema, íconos, precarga de fuentes y el respaldo sin JavaScript (revela el contenido, esconde el menú y muestra la navegación en pantallas chicas). |
+| `static/brand/` | El logo (SVG, tal como se entregó) y sus PNG: favicon de 32px, ícono de 180px y `og.png`, la imagen para compartir (1200×630) que genera `scripts/og-image.mjs`. |
 | `static/fonts/` | JetBrains Mono y Chakra Petch en woff2 (subset latino) con sus licencias OFL. No se pide ninguna fuente a otro dominio. |
+| `static/robots.txt` | Deja entrar a todos los bots: producción se indexa y QA les agrega `X-Robots-Tag: noindex` desde Caddy (por eso no hay `Disallow:`). Cuando haya dominio lleva la línea `Sitemap:` y existe `static/sitemap.xml` — ver «Salir a producción». |
+| `scripts/og-image.mjs` | Genera `static/brand/og.png`: descomprime los woff2 a TTF en un temporal, compone el SVG con los textos en las fuentes propias y lo rasteriza con `rsvg-convert` (necesita también `woff2_decompress` y `magick` del sistema). Se corre a mano cuando cambia la identidad o el tagline; no forma parte del build. |
 | `site.json` | `domain` de producción. Vacío: el sitio solo existe en QA. |
 
 ## Las piezas
@@ -49,9 +52,9 @@ Antes de pushear: `check`, `test` y `build`. El CI solo buildea.
 - **`Experience`**: línea de tiempo orientada a resultados; la celda verde marca el trabajo en curso.
 - **`Writing`**: notas, detrás del flag `features.writing` (apagado por defecto).
 - **`Contact`**: formulario con pinta de terminal (validación por campo, honeypot, estado con `role="status"`). Hace POST al endpoint si lo hay (`PUBLIC_CONTACT_ENDPOINT` o `contact.endpoint`); si no, `mailto:` con el mensaje armado. Abajo van los canales directos, siempre en el HTML.
-- **`Seo`**: título, descripción, Open Graph y el JSON-LD de la persona.
-- **`Background3D`**: el fondo. Dibuja un grafo de arquitectura (nodos, aristas, paquetes, pulsos) sobre un piso con plano, y la cámara lo recorre siguiendo el scroll por las seis etapas del pipeline. Three se descarga después de `load`, del primer pintado y cuando el navegador está ocioso, y solo con WebGL2 de hardware y sin ahorro de datos; con render por software (SwiftShader, llvmpipe) o sin WebGL2 queda la grilla CSS. El scroll mueve la cámara por las `stageAnchor` de cada sección, el puntero hace paralaje y hover, y un click en el fondo (o `deploy --prod` en la terminal) manda un pulso al grafo. Con `prefers-reduced-motion` queda un cuadro fijo. `?debug3d` muestra un HUD con fps, cluster y calidad; `?debug3d=low|high` fuerza el tier.
-- **`PlaygroundSection`**, **`Playground`**, **`PlaygroundControls`**, **`PlaygroundMetrics`**, **`PlaygroundDiagram`**: el simulador de diseño de sistemas (Cliente → API → DB). La sección es un shell que reserva lugar y, cuando se acerca al viewport, baja el simulador con `import()` dinámico (placeholder con `StatusDot` mientras tanto, y reintento si falla). `Playground` tiene la config y el estado, corre el tick fijo de 250 ms solo con la sección en pantalla y la pestaña visible, anuncia la salud en una región `role="status"` con debounce, y pide un pulso al fondo 3D cuando se prende una falla o hay cold start. Los controles son tráfico (req/s), toggles de arquitectura (caché, balanceador, cola, réplica), ratio de aciertos de la caché, instancias y las fallas inyectables; las métricas muestran p50/p95, throughput, error rate, carga de base y lag de cola, y quedan sticky a la vista mientras se usan los controles; el diagrama dibuja la topología en SVG (ancha o alta según el ancho) con paquetes animados por las rutas del modelo — con movimiento reducido no hay `<rect>` de paquetes pero la simulación sigue.
+- **`Seo`**: título, descripción, Open Graph (la imagen `og.png` y las URLs absolutas solo salen cuando `site.url` tiene dominio), Twitter cards y el JSON-LD de la persona.
+- **`Background3D`**: el fondo. Dibuja un grafo de arquitectura (nodos, aristas, paquetes, pulsos) sobre un piso con plano, y la cámara lo recorre siguiendo el scroll por las seis etapas del pipeline. La escena entera corre en un Web Worker (`three/scene.worker.ts`) con el canvas transferido por `transferControlToOffscreen()`: Three y el renderer nunca tocan el hilo principal, que solo mide el dispositivo, observa la página y reenvía entradas (etapa del scroll, puntero, clicks, redimensionado, visibilidad). El worker se crea recién cuando la página cargó, pintó su primer contenido, pasaron 1,2 s de margen para que la página termine de asentarse (hidratación, montaje del simulador y el desmontaje del compositor anterior de Chrome, que espera sobre el mismo proceso de GPU) y el navegador está ocioso, y solo con Worker + `transferControlToOffscreen`, WebGL2 de hardware y sin ahorro de datos; con render por software (SwiftShader, llvmpipe), sin WebGL2 o sin soporte queda la grilla CSS. El scroll mueve la cámara por las `stageAnchor` de cada sección, el puntero hace paralaje y hover, y un click en el fondo (o `deploy --prod` en la terminal) manda un pulso al grafo. Con `prefers-reduced-motion` queda un cuadro fijo. `?debug3d` muestra un HUD con fps, cluster y calidad; `?debug3d=low|high` fuerza el tier.
+- **`PlaygroundSection`**, **`Playground`**, **`PlaygroundControls`**, **`PlaygroundMetrics`**, **`PlaygroundDiagram`**: el simulador de diseño de sistemas (Cliente → API → DB). La sección es un shell que reserva lugar; el chunk del simulador se descarga en idle apenas hidrata la página (`requestIdleCallback`, `import()` memoizado) y el simulador monta recién cuando la sección está a menos de 800 px debajo del viewport o ya quedó arriba (un `IntersectionObserver` con margen superior enorme cubre el salto directo a una sección posterior), con placeholder `StatusDot` mientras tanto y reintento si falla. Como la sección cambia de alto al montar, si un salto por ancla a una sección de abajo quedó corto se rehace el `scrollIntoView()` al destino apenas monta (solo si nadie scrolleó a mano). `Playground` tiene la config y el estado, corre el tick fijo de 250 ms solo con la sección en pantalla y la pestaña visible, anuncia la salud en una región `role="status"` con debounce, y pide un pulso al fondo 3D cuando se prende una falla o hay cold start. Los controles son tráfico (req/s), toggles de arquitectura (caché, balanceador, cola, réplica), ratio de aciertos de la caché, instancias y las fallas inyectables; las métricas muestran p50/p95, throughput, error rate, carga de base y lag de cola, y quedan sticky a la vista mientras se usan los controles; el diagrama dibuja la topología en SVG (ancha o alta según el ancho) con paquetes animados por las rutas del modelo — con movimiento reducido no hay `<rect>` de paquetes pero la simulación sigue.
 
 ## Cómo se agrega…
 
@@ -65,6 +68,26 @@ Antes de pushear: `check`, `test` y `build`. El CI solo buildea.
 - **Un preset / un toggle del playground**: el preset es una entrada de `PRESETS` en `playground/presets.ts` más su texto en `content/playground.js` (los tests de `presets.test.ts` y `validate.test.js` lo exigen). Un toggle de arquitectura es un `ToggleId` de `playground/model.ts`, su entrada en `toggles` de `content/playground.js` y su control en `PlaygroundControls.svelte`.
 - **Un color o una medida**: en `tokens.css`, nunca suelto en otro archivo.
 
+## Salir a producción
+
+Cuando exista el dominio hay cuatro lugares que tienen que nombrar el mismo origen — `release.test.js` (corre con `npm test`) avisa exactamente qué falta si algo no coincide:
+
+1. `site.json` → `"domain": "<dominio>"`.
+2. `site.url` en `src/lib/content/site.js` → `"https://<dominio>"`, sin barra final. Con eso el `<head>` emite `canonical`, `og:url`, `og:image*` y `twitter:image*`.
+3. `static/robots.txt` → agregar la línea `Sitemap: https://<dominio>/sitemap.xml`.
+4. `static/sitemap.xml` (archivo nuevo, una página):
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+     <url>
+       <loc>https://<dominio>/</loc>
+     </url>
+   </urlset>
+   ```
+
+La infraestructura ya está descrita en los docs del repo: el bloque de Caddy `infra/sites/<dominio>.caddy`, el DNS (`@` y `www` como CNAME al origen) y el workflow manual **Promover a producción** están en [`docs/hetzner.md`](../../docs/hetzner.md) y [`docs/github-actions.md`](../../docs/github-actions.md).
+
 ## Contenido pendiente
 
 Lo que todavía es un placeholder está marcado `TODO(content)` en `src/lib/content/`: el mail, los perfiles (GitHub, LinkedIn), los proyectos enteros (copy y links), las herramientas del pipeline, los estados y años del stack, roles y resultados de la experiencia, los posts de notas y `site.url` (el dominio de producción). Los perfiles marcados `todo: true` no salen en el JSON-LD, y los ítems `todo` llevan el tag `PLACEHOLDER` en la página.
@@ -73,5 +96,5 @@ Lo que todavía es un placeholder está marcado `TODO(content)` en `src/lib/cont
 
 - Sintaxis de Svelte 4 (`export let`, `$:`, `on:click`, `<slot />`). Sin runes.
 - Nada que use `window` o `document` fuera de `onMount` o de un manejador de eventos: todo se prerenderiza.
-- `three` solo se carga con un `import()` dinámico desde `onMount` (`loadThree()` en `three/scene.ts`), nunca a nivel de módulo.
+- `three` solo se carga con `import()` dinámico **dentro del worker** (`loadThree()` en `three/scene.ts`, invocado por `three/host.ts` recién después de probar el contexto WebGL2), nunca a nivel de módulo ni en el hilo principal.
 - Sin pedidos a otros dominios ni scripts de terceros.

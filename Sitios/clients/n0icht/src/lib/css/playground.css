@@ -143,6 +143,14 @@
   }
 }
 
+/* En viewports bajitos (celular apaisado) header + métricas pegajosas tapaban más
+   de la mitad de la pantalla: ahí las métricas vuelven a ser un bloque común */
+@media (max-height: 30rem) {
+  .n0-pg-metrics {
+    position: static;
+  }
+}
+
 @media (max-width: 47.99rem) {
   .n0-pg-dt-long {
     position: absolute;

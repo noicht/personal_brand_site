@@ -12,9 +12,20 @@
     <!-- Las dos fuentes que se ven sin scrollear: el lema (Chakra Petch 700) y el header y la terminal (JetBrains Mono) -->
     <link rel="preload" href="%sveltekit.assets%/fonts/chakra-petch-latin-700.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="%sveltekit.assets%/fonts/jetbrains-mono-latin-wght.woff2" as="font" type="font/woff2" crossorigin />
-    <!-- Sin JavaScript nadie le saca la opacidad 0 a .fx-reveal (lo hace reveal.js del kit) -->
-    <noscript><style>.fx-reveal { opacity: 1; transform: none; }</style></noscript>
     %sveltekit.head%
+    <!-- Sin JavaScript: nadie le saca la opacidad 0 a .fx-reveal (lo hace reveal.js del kit), y el botón del
+         menú no abre nada. Va después de %sveltekit.head% para ganarle por orden al CSS del sitio. -->
+    <noscript>
+      <style>
+        .fx-reveal { opacity: 1; transform: none; }
+        .n0-menu { display: none; }
+        @media (max-width: 61.999rem) {
+          .site-header { position: static; }
+          .site-header-inner { flex-wrap: wrap; padding-block: var(--sp-2); }
+          .site-nav { display: flex; flex-wrap: wrap; margin-left: 0; }
+        }
+      </style>
+    </noscript>
   </head>
   <body data-sveltekit-preload-data="hover">
     <div style="display: contents">%sveltekit.body%</div>

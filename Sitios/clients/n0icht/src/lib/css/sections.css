@@ -122,11 +122,14 @@
     padding-block: var(--sp-7);
   }
 
-  /* Riel pegajoso: un paso por etapa, con la celda cuadrada del motivo */
+  /* Riel pegajoso: un paso por etapa, con la celda cuadrada del motivo.
+     La placa va directo sobre la escena; el anillo de sombra le da aire sin mover layout */
   .n0-pipe-rail {
     position: sticky;
     top: calc(var(--header-h) + var(--sp-5));
     display: block;
+    background: var(--c-scrim);
+    box-shadow: 0 0 0 var(--sp-3) var(--c-scrim);
   }
 
   .n0-pipe-rail ol {
@@ -189,8 +192,11 @@
 }
 
 .n0-case {
-  /* Es un .n0-panel is-flush: fondo, borde y corchetes vienen de ahí */
+  /* Es un .n0-panel is-flush: fondo, borde y corchetes vienen de ahí.
+     min-width: 0 para que el min-width del SVG del diagrama no se propague y
+     desborde la página: .n0-diagram tiene overflow-x propio */
   position: relative;
+  min-width: 0;
 }
 
 /* El caso abierto ocupa todo el ancho de la grilla */
@@ -275,6 +281,7 @@
 .n0-case-body section {
   display: grid;
   gap: var(--sp-2);
+  min-width: 0;
 }
 
 .n0-case-body h4 {
@@ -300,6 +307,7 @@
 
 .n0-case-figure {
   margin: 0;
+  min-width: 0;
 }
 
 .n0-decisions,
@@ -458,6 +466,9 @@
   margin: 0 0 var(--sp-5);
   padding: 0;
   list-style: none;
+  /* Placa: la leyenda va directo sobre la escena 3D */
+  background: var(--c-scrim);
+  box-shadow: 0 0 0 var(--sp-3) var(--c-scrim);
 }
 
 .n0-stack-legend li {

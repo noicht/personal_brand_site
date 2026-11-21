@@ -271,7 +271,7 @@ section:focus {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  background: color-mix(in srgb, var(--c-bg) 86%, transparent);
+  background: var(--c-scrim); /* placa: el texto del header va directo sobre la escena */
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-bottom: var(--border);
@@ -347,6 +347,8 @@ section:focus {
 .n0-menu kbd {
   display: none;
   color: var(--c-muted);
+  /* El kbd más chico no baja del micro del sistema de tokens */
+  font-size: var(--fs-micro);
 }
 
 @media (min-width: 62rem) {
@@ -370,7 +372,7 @@ section:focus {
 .site-footer {
   padding-block: var(--sp-6);
   border-top: var(--border);
-  background: color-mix(in srgb, var(--c-bg) 86%, transparent);
+  background: var(--c-scrim); /* placa: el texto del footer va directo sobre la escena */
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--c-muted);
@@ -458,15 +460,16 @@ section:focus {
   margin-bottom: var(--sp-5);
 }
 
-/* Scrim detrás del encabezado: el fondo 3D no le roba contraste al título */
+/* Placa detrás del encabezado de sección: el fondo 3D no le roba contraste al
+   título; la sombra del mismo color la difumina hacia afuera, sin gradiente */
 .n0-sechead::before {
   content: "";
   position: absolute;
   z-index: -1;
   pointer-events: none;
-  inset-block: calc(var(--sp-3) * -1);
-  inset-inline: calc(var(--gutter) * -1) 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--c-bg) 84%, transparent) 55%, transparent 100%);
+  inset: calc(var(--sp-2) * -1) calc(var(--sp-3) * -1);
+  background: var(--c-scrim);
+  box-shadow: 0 0 var(--sp-5) var(--sp-4) var(--c-scrim);
 }
 
 .n0-sechead .n0-micro {
@@ -620,7 +623,8 @@ section:focus {
   align-items: center;
 }
 
-/* Scrim detrás del texto del hero: el fondo 3D no lo vuelve ilegible */
+/* Placa detrás del texto del hero: el fondo 3D no lo vuelve ilegible; la sombra
+   del mismo color la difumina hacia afuera en vez de un degradado radial */
 .n0-hero-copy {
   position: relative;
   isolation: isolate;
@@ -634,9 +638,9 @@ section:focus {
   position: absolute;
   z-index: -1;
   pointer-events: none;
-  inset-block: calc(var(--sp-6) * -1);
-  inset-inline: calc(var(--gutter) * -1);
-  background: radial-gradient(farthest-corner, color-mix(in srgb, var(--c-bg) 86%, transparent) 62%, transparent 100%);
+  inset: calc(var(--sp-3) * -1);
+  background: var(--c-scrim);
+  box-shadow: 0 0 var(--sp-6) var(--sp-5) var(--c-scrim);
 }
 
 .n0-hero-meta {

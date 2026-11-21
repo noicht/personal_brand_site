@@ -2,15 +2,19 @@
   /**
    * Fondo 3D del sitio: un grafo de arquitectura que sigue el scroll por las seis etapas.
    *
-   * Three no está en el bundle inicial: el módulo de la escena (`src/lib/three/scene.ts`) y la
-   * librería llegan con un `import()` dinámico que corre recién cuando la página cargó, pintó
-   * su primer contenido y el navegador está ocioso. Si no hay WebGL2 de hardware, hay ahorro
-   * de datos, el render es por software o el contexto se pierde, el div `.n0-bg` queda con su
-   * fondo CSS de respaldo y no se descarga nada de three.
+   * La escena vive en un Web Worker (`src/lib/three/scene.worker.ts`) con el canvas
+   * transferido por `transferControlToOffscreen()`: three, la creación de la escena
+   * y cada cuadro corren fuera del hilo principal, que solo reenvía inputs. Three
+   * no está en el bundle inicial: el worker se crea recién cuando la página cargó,
+   * pintó su primer contenido, pasó un margen de asentamiento y el navegador está
+   * ocioso. Si no hay Worker, no hay
+   * transferControlToOffscreen, no hay WebGL2 de hardware, el render es por software
+   * o el contexto se pierde, el div `.n0-bg` queda con su fondo CSS de respaldo.
    *
    * - `data-scene` dice el estado (`idle`, `live`, `still`, `fallback`) y `is-live` prende el
    *   canvas; la opacidad la maneja `--scene-intensity` en site.css.
-   * - Con `prefers-reduced-motion` la escena queda en un cuadro fijo (`still`).
+   * - Con `prefers-reduced-motion` la escena queda en un cuadro fijo (`still`); el
+   *   worker avisa el estado nuevo, acá no se setea a mano.
    * - `?debug3d` muestra un HUD con fps, cluster y calidad; `?debug3d=low|high` fuerza el tier.
    * - Los clics sobre el fondo mandan un pulso al nodo más cercano; los pulsos pedidos
    *   desde afuera (`deploy --prod` en la terminal, las fallas del playground) llegan por
@@ -19,7 +23,7 @@
   import { onMount } from "svelte";
   import { get } from "svelte/store";
   import { activeStage, pulseRequests, readStagePosition, sceneStatus } from "$lib/stores/scene.js";
-  import { effectiveDpr, isSoftwareRenderer, pickQuality, TIERS } from "$lib/three/quality.ts";
+  import { pickQuality, TIERS } from "$lib/three/quality.ts";
   import { STAGES } from "$lib/three/stages.ts";
 
   /** Selectores cuyo click no dispara un pulso: la UI siempre gana. */
@@ -27,14 +31,26 @@
     'a, button, input, textarea, select, label, summary, dialog, [role="button"], ' +
     '[tabindex]:not([tabindex="-1"]), .n0-panel, .site-header';
 
+  /**
+   * Margen entre el primer pintado y el pedido de arranque de la escena. La escena es
+   * decorativa y su arranque satura el proceso de GPU; en el primer segundo después de
+   * que aparece la página el hilo principal todavía está hidratando, y el propio Chrome
+   * desmonta el compositor del documento anterior ~1 s después de la navegación, lo que
+   * espera sobre ese mismo proceso de GPU: arrancar el worker en ese momento bloqueó el
+   * hilo principal 30–90 ms (medido). Por eso la escena espera 1,2 s después del primer
+   * pintado y recién ahí pide un hueco ocioso.
+   */
+  const SCENE_SETTLE_MS = 1200;
+
   /** @type {HTMLCanvasElement} */
   let canvas;
-  /** @type {import("$lib/three/scene.ts").SceneHandle | null} */
-  let scene = null;
   /** @type {import("$lib/three/quality.ts").QualityTier | null} */
   let tier = null;
-  /** @type {WebGL2RenderingContext | null} */
-  let gl = null;
+  /** @type {Worker | null} */
+  let worker = null;
+  /** Últimos stats que mandó el worker, para el HUD. */
+  /** @type {import("$lib/three/scene.ts").SceneStats | null} */
+  let latestStats = null;
 
   let status = "idle";
   let debug = false;
@@ -67,17 +83,16 @@
     const hover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     let visible = !document.hidden;
     let onScreen = true;
-    let destroyed = false;
 
     // ---------- HUD de debug (existe aunque la escena no llegue a cargar) ----------
 
     const buildHud = () => {
-      if (!scene || !tier) {
+      if (!latestStats || !tier) {
         const stage = get(activeStage);
         hud = `scene=${status} · cluster=${stage + 1}/6 ${STAGES[stage]}`;
         return;
       }
-      const s = scene.stats;
+      const s = latestStats;
       hud =
         `scene=${status} · fps=${Math.round(s.fps)} · cluster=${s.cluster + 1}/6 ${STAGES[s.cluster]} · ` +
         `pos=${s.position.toFixed(2)} · quality=${tier.name}/${s.level} · dpr=${s.dpr.toFixed(2)} · ` +
@@ -89,14 +104,14 @@
       hudTimer = setInterval(buildHud, 500);
     }
 
-    // Ahorro de datos: ni contexto ni three; el fondo queda en el CSS de respaldo
+    // Ahorro de datos: ni worker ni three; el fondo queda en el CSS de respaldo
     if (nav.connection?.saveData === true) {
       status = "fallback";
       buildHud();
       return () => clearInterval(hudTimer);
     }
 
-    // ---------- helpers de la escena ----------
+    // ---------- helpers ----------
 
     const readPalette = () => {
       const styles = getComputedStyle(canvas);
@@ -114,16 +129,94 @@
       };
     };
 
-    const applySize = () => {
-      if (scene) scene.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
+    // ---------- mensajes del worker ----------
+
+    /** El worker cayó en respaldo (o el script falló): se termina y se limpia el listener de scroll. */
+    const failToFallback = () => {
+      worker?.terminate();
+      worker = null;
+      window.removeEventListener("scroll", markStageDirty);
+      status = "fallback";
+      buildHud();
     };
 
-    const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const onWorkerMessage = (event) => {
+      const data = event.data;
+      if (data?.type === "status") {
+        if (data.status === "fallback") failToFallback();
+        else {
+          status = data.status;
+          buildHud();
+        }
+      } else if (data?.type === "stats") {
+        latestStats = data.stats;
+        buildHud();
+      }
+    };
 
-    // ---------- arranque: load -> primer paint -> idle -> start ----------
+    const onWorkerError = (event) => {
+      // Worker no soportado como módulo, script que no cargó, error no capturado
+      event.preventDefault();
+      failToFallback();
+    };
+
+    // ---------- reenvío de inputs, coalescido a un frame ----------
+
+    const pointer = { x: 0, y: 0, inside: false };
+    let pointerDirty = false;
+    let stageDirty = false;
+    // La etapa cambió: el invalidate va DESPUÉS del stage en la cola del worker, así el
+    // cuadro fijo del modo still se redibuja con la posición nueva (si llega antes,
+    // dibuja con el stage viejo y stats queda trabado).
+    let stageInvalidate = false;
+    let flushRaf = 0;
+    let lastStage = 0;
+
+    const flush = () => {
+      flushRaf = 0;
+      if (!worker) {
+        pointerDirty = false;
+        stageDirty = false;
+        stageInvalidate = false;
+        return;
+      }
+      if (pointerDirty) {
+        pointerDirty = false;
+        worker.postMessage({ type: "pointer", x: pointer.x, y: pointer.y, inside: pointer.inside });
+      }
+      if (stageDirty) {
+        stageDirty = false;
+        const position = readStagePosition();
+        if (position !== lastStage) {
+          lastStage = position;
+          worker.postMessage({ type: "stage", position });
+        }
+      }
+      if (stageInvalidate) {
+        stageInvalidate = false;
+        worker.postMessage({ type: "invalidate" });
+      }
+    };
+
+    // Un rAF por frame y solo cuando algo cambió: no hay loop permanente en el hilo principal
+    const scheduleFlush = () => {
+      if (flushRaf || !worker) return;
+      flushRaf = requestAnimationFrame(flush);
+    };
+    const markPointerDirty = () => {
+      pointerDirty = true;
+      scheduleFlush();
+    };
+    const markStageDirty = () => {
+      stageDirty = true;
+      scheduleFlush();
+    };
+
+    // ---------- arranque: load -> primer paint -> idle -> worker ----------
 
     let idleHandle = 0;
     let idleViaCallback = false;
+    let settleTimer = 0;
     /** @type {PerformanceObserver | null} */
     let paintObserver = null;
     /** @type {(() => void) | null} */
@@ -132,6 +225,7 @@
     const cancelScheduled = () => {
       if (loadListener) window.removeEventListener("load", loadListener);
       paintObserver?.disconnect();
+      clearTimeout(settleTimer);
       if (idleViaCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(idleHandle);
       else clearTimeout(idleHandle);
     };
@@ -182,192 +276,150 @@
       window.addEventListener("load", loadListener, { once: true });
     };
 
-    // ---------- la escena: cada paso en su propia tarea ----------
+    // ---------- el worker: canvas transferido + init ----------
 
-    const start = async () => {
-      // 1. El drawing buffer nace a tamaño final: el canvas se mide antes del contexto
-      const dpr = effectiveDpr(window.devicePixelRatio || 1, tier, 0);
-      if (canvas.clientWidth > 0 && canvas.clientHeight > 0) {
-        canvas.width = Math.floor(canvas.clientWidth * dpr);
-        canvas.height = Math.floor(canvas.clientHeight * dpr);
+    const start = () => {
+      if (typeof Worker === "undefined" || typeof canvas.transferControlToOffscreen !== "function") {
+        status = "fallback";
+        buildHud();
+        return;
       }
-
-      // 2. Contexto WebGL2
+      let offscreen;
       try {
-        gl = canvas.getContext("webgl2", {
-          alpha: true,
-          antialias: tier.antialias,
-          depth: true,
-          stencil: false,
-          powerPreference: "low-power",
-          failIfMajorPerformanceCaveat: true,
-        });
+        offscreen = canvas.transferControlToOffscreen();
       } catch {
-        gl = null;
-      }
-      if (!gl) {
         status = "fallback";
         buildHud();
         return;
       }
-
-      // 3. Render por CPU (SwiftShader, llvmpipe): respaldo sin bajar three
-      const info = gl.getExtension("WEBGL_debug_renderer_info");
-      const rendererName = String(
-        info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
-      );
-      if (isSoftwareRenderer(rendererName)) {
-        gl.getExtension("WEBGL_lose_context")?.loseContext();
-        gl = null;
-        status = "fallback";
-        buildHud();
-        return;
-      }
-
-      // Después de cada await: destruido -> liberar lo que haya; contexto perdido
-      // (status "fallback" por webglcontextlost) -> salir sin tocar el estado
-      const bail = () => {
-        if (destroyed && scene) {
-          scene.dispose();
-          scene = null;
-        }
-        return destroyed || status === "fallback";
-      };
-
-      try {
-        // 4. El módulo de la escena y three
-        const mod = await import("$lib/three/scene.ts");
-        if (bail()) return;
-        const T = await mod.loadThree();
-        if (bail()) return;
-        // 5. Evaluación de three y armado de la escena en tareas separadas
-        await nextTask();
-        if (bail()) return;
-        // 6.
-        scene = mod.createScene(T, canvas, gl, {
+      worker = new Worker(new URL("../three/scene.worker.ts", import.meta.url), { type: "module" });
+      worker.onmessage = onWorkerMessage;
+      worker.onerror = onWorkerError;
+      // La posición sobre el recorrido se empuja al worker cuando scrollea la página
+      window.addEventListener("scroll", markStageDirty, { passive: true });
+      const stage = readStagePosition();
+      lastStage = stage;
+      worker.postMessage(
+        {
+          type: "init",
+          canvas: offscreen,
           tier,
           palette: readPalette(),
           still: reduce.matches,
           hover,
-          readStage: readStagePosition,
-        });
-        // 7.
-        await nextTask();
-        if (bail()) return;
-        applySize();
-        scene.setRunning(visible && onScreen);
-        // 8.
-        await scene.ready;
-        if (bail()) return;
-        if (!scene) return;
-        status = reduce.matches ? "still" : "live";
-        buildHud();
-      } catch (error) {
-        console.warn("[n0icht] el fondo 3D no está disponible", error);
-        if (scene) {
-          scene.dispose();
-          scene = null;
-        }
-        status = "fallback";
-        buildHud();
-      }
+          debug,
+          width: canvas.clientWidth,
+          height: canvas.clientHeight,
+          dpr: window.devicePixelRatio || 1,
+          running: visible && onScreen,
+          stage,
+        },
+        [offscreen],
+      );
     };
 
     afterLoad(() => {
-      waitFirstPaint(scheduleIdle);
+      waitFirstPaint(() => {
+        settleTimer = setTimeout(scheduleIdle, SCENE_SETTLE_MS);
+      });
     });
 
     // ---------- listeners y suscripciones ----------
 
-    const resizeObserver = new ResizeObserver(applySize);
+    const resizeObserver = new ResizeObserver(() => {
+      markStageDirty();
+      worker?.postMessage({
+        type: "resize",
+        width: canvas.clientWidth,
+        height: canvas.clientHeight,
+        dpr: window.devicePixelRatio || 1,
+      });
+    });
     resizeObserver.observe(canvas);
 
     const intersectionObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) onScreen = entry.isIntersecting;
-      if (scene) scene.setRunning(visible && onScreen);
+      worker?.postMessage({ type: "running", value: visible && onScreen });
     });
     intersectionObserver.observe(canvas);
 
     const onVisibility = () => {
       visible = !document.hidden;
-      if (scene) scene.setRunning(visible && onScreen);
+      worker?.postMessage({ type: "running", value: visible && onScreen });
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     const onReduceChange = (event) => {
-      if (!scene) return;
-      scene.setStill(event.matches);
-      status = event.matches ? "still" : "live";
-      buildHud();
+      // El worker reenvía el estado (still/live) por su cuenta
+      worker?.postMessage({ type: "still", value: event.matches });
     };
     reduce.addEventListener("change", onReduceChange);
 
     const onPointerMove = (event) => {
-      if (event.pointerType === "touch" || !scene) return;
-      scene.setPointer(event.clientX, event.clientY, true);
+      if (event.pointerType === "touch") return;
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.inside = true;
+      markPointerDirty();
     };
     window.addEventListener("pointermove", onPointerMove, { passive: true });
 
     const onPointerLeave = () => {
-      if (scene) scene.setPointer(0, 0, false);
+      pointer.inside = false;
+      markPointerDirty();
     };
     document.documentElement.addEventListener("pointerleave", onPointerLeave);
 
     const onClick = (event) => {
-      if (!scene || event.button !== 0 || event.defaultPrevented) return;
+      if (event.button !== 0 || event.defaultPrevented) return;
       if (window.getSelection()?.toString()) return;
       if (event.target instanceof Element && event.target.closest(EXCLUDED)) return;
-      scene.pulseAt(event.clientX, event.clientY);
+      worker?.postMessage({ type: "pulse-at", x: event.clientX, y: event.clientY });
     };
     window.addEventListener("click", onClick);
 
-    const onContextLost = (event) => {
-      event.preventDefault();
-      if (scene) {
-        scene.dispose();
-        scene = null;
-      }
-      status = "fallback";
-      buildHud();
+    // Hook de prueba del harness: con ?debug3d el worker acepta debug-lose-context
+    const onDebugLose = () => {
+      worker?.postMessage({ type: "debug-lose-context" });
     };
-    canvas.addEventListener("webglcontextlost", onContextLost);
+    if (debug) window.addEventListener("n0icht:debug3d-lose", onDebugLose);
 
     // Un pulso pedido desde afuera (deploy --prod en la terminal, fallas del playground)
-    // enciende el cluster de su etapa; el cambio de etapa redibuja el cuadro fijo del
-    // modo still
+    // enciende el cluster de su etapa; el cambio de etapa marca el stage para el
+    // próximo flush y redibuja el cuadro fijo del modo still
     let pulseFirst = true;
     const unsubscribePulses = pulseRequests.subscribe((request) => {
       if (pulseFirst) {
         pulseFirst = false;
         return;
       }
-      if (scene) scene.pulseStage(request.stage);
+      worker?.postMessage({ type: "pulse-stage", stage: request.stage });
     });
     const unsubscribeStage = activeStage.subscribe(() => {
-      if (scene) scene.invalidate();
+      markStageDirty();
+      stageInvalidate = true;
+      scheduleFlush();
     });
 
     // ---------- limpieza única ----------
 
     return () => {
-      destroyed = true;
       clearInterval(hudTimer);
       cancelScheduled();
+      if (flushRaf) cancelAnimationFrame(flushRaf);
+      window.removeEventListener("scroll", markStageDirty);
       window.removeEventListener("pointermove", onPointerMove);
       document.documentElement.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("click", onClick);
       document.removeEventListener("visibilitychange", onVisibility);
       reduce.removeEventListener("change", onReduceChange);
+      window.removeEventListener("n0icht:debug3d-lose", onDebugLose);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       unsubscribePulses();
       unsubscribeStage();
-      canvas.removeEventListener("webglcontextlost", onContextLost);
-      if (scene) {
-        scene.dispose();
-        scene = null;
-      }
-      gl?.getExtension("WEBGL_lose_context")?.loseContext();
+      worker?.terminate();
+      worker = null;
     };
   });
 </script>

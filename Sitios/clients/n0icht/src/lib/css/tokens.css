@@ -15,6 +15,7 @@
   --c-text: #e6edf3;
   --c-muted: #8b98a5;
   --c-on-amber: #0b0d10; /* texto sobre ámbar: el blanco no llega a AA */
+  --c-scrim: color-mix(in srgb, var(--c-bg) 90%, transparent); /* placa detrás del texto que va directo sobre la escena 3D: con 90% cualquier píxel de la escena deja el texto muted arriba de 4.5:1 */
 
   /* Tipografía */
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;

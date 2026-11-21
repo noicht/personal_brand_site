@@ -15,11 +15,21 @@ export const site = {
   tagline: "From zero to production.",
   title: "Martín Cabrera · n0icht | Backend & system design engineer",
   description:
-    "Martín Cabrera (n0icht) is a software engineer focused on backend and system design. I design, build, ship and operate production systems: from zero to production.",
-  // TODO(content): origen de producción (https://dominio), cuando exista. Habilita canonical y og:url.
+    "Martín Cabrera (n0icht), software engineer focused on backend and system design. I design, build, ship and operate production systems, from zero to production.",
+  // TODO(content): origen de producción (https://dominio), cuando exista. Habilita canonical,
+  // og:url, og:image y twitter:image; tiene que coincidir con `domain` de site.json,
+  // `static/robots.txt` y `static/sitemap.xml` (ver `release.test.js` y el README,
+  // "Salir a producción").
   url: "",
   locale: "en_US",
   logo: "/brand/logo-b-glyph-mark.svg",
+  ogImage: {
+    path: "/brand/og.png",
+    width: 1200,
+    height: 630,
+    type: "image/png",
+    alt: "Martín Cabrera · n0icht. From zero to production.",
+  },
   knowsAbout: [
     "Backend engineering",
     "System design",
